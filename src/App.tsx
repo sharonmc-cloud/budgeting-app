@@ -16,7 +16,6 @@ function addExpense() {
       amount: Number(amount),
     },
 
-    
   ])
 
   setAmount('')
@@ -29,26 +28,24 @@ const historicalTransactions = [
   { date: '2026-08-07', category: 'Food', amount: 12 },
   { date: '2026-08-07', category: 'Life', amount: 8 },
 ]
+const historicalDates = [
+  '2026-08-06',
+  '2026-08-07',
+]
 
-const august6Spent = historicalTransactions
-  .filter((transaction) => transaction.date === '2026-08-06')
-  .reduce(
-    (total, transaction) => total + transaction.amount,
-    0
-  )
+const previousDayBalance = historicalDates.reduce(
+  (rollover, date) => {
+    const spentThatDay = historicalTransactions
+      .filter((transaction) => transaction.date === date)
+      .reduce(
+        (total, transaction) => total + transaction.amount,
+        0
+      )
 
-const august6Balance = dailyBaseline - august6Spent
-
-const august7Spent = historicalTransactions
-  .filter((transaction) => transaction.date === '2026-08-07')
-  .reduce(
-    (total, transaction) => total + transaction.amount,
-    0
-  )
-
-const previousDayBalance =
-  august6Balance + dailyBaseline - august7Spent
-
+    return rollover + dailyBaseline - spentThatDay
+  },
+  0
+)
 const totalSpent = transactions.reduce(
   (total, transaction) => total + transaction.amount,
   0
