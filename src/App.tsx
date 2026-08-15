@@ -22,20 +22,47 @@ function addExpense() {
   setAmount('')
   setSelectedCategory(null)
 }
+const dailyBaseline = 50
+
+const historicalTransactions = [
+  { date: '2026-08-06', category: 'Food', amount: 20 },
+  { date: '2026-08-07', category: 'Food', amount: 12 },
+  { date: '2026-08-07', category: 'Life', amount: 8 },
+]
+
+const august6Spent = historicalTransactions
+  .filter((transaction) => transaction.date === '2026-08-06')
+  .reduce(
+    (total, transaction) => total + transaction.amount,
+    0
+  )
+
+const august6Balance = dailyBaseline - august6Spent
+
+const august7Spent = historicalTransactions
+  .filter((transaction) => transaction.date === '2026-08-07')
+  .reduce(
+    (total, transaction) => total + transaction.amount,
+    0
+  )
+
+const previousDayBalance =
+  august6Balance + dailyBaseline - august7Spent
 
 const totalSpent = transactions.reduce(
   (total, transaction) => total + transaction.amount,
   0
 )
 
-const availableToday = 50 - totalSpent
+const availableToday = previousDayBalance + dailyBaseline - totalSpent  
 
-  return (
+return (
     <main>
       <p>Saturday, August 8</p>
 
       <h1>${availableToday}</h1>
       <p>available today</p>
+      <p>Includes ${previousDayBalance} from yesterday</p>
 
       <div>
        <CategoryButton
