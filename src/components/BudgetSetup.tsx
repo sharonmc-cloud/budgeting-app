@@ -29,6 +29,10 @@ function BudgetSetup({ onComplete }: Props) {
   const [showError, setShowError] = useState(false)
   const amountCents = parseMoneyToCents(amount)
   const days = getPeriodDays(interpretation, today)
+  const exactDailyPreview =
+    amountCents === null
+      ? null
+      : getDailyAllocationCents(amountCents, days, 'exact')
 
   const choices: Array<{ value: RoundingPreference; label: string }> = [
     { value: 'exact', label: 'Exact' },
@@ -83,6 +87,13 @@ function BudgetSetup({ onComplete }: Props) {
           {showError && amountCents === null && (
             <p className="setup__error" id="amount-error" role="alert">
               Enter an amount greater than $0, with up to two decimal places.
+            </p>
+          )}
+          {exactDailyPreview !== null && (
+            <p className="setup__daily-preview" aria-live="polite">
+              That gives you{' '}
+              <strong>{currency.format(exactDailyPreview / 100)} per day</strong>
+              .
             </p>
           )}
         </section>

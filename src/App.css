@@ -85,6 +85,17 @@
 .money-input input { width: 100%; min-width: 0; border: 0; outline: 0; color: inherit; background: transparent; font: inherit; }
 .money-input input::placeholder { color: var(--color-muted); opacity: 0.35; }
 .setup__error { margin-top: var(--space-3); font-weight: 700; }
+.setup__daily-preview {
+  margin-top: var(--space-4);
+  color: var(--color-muted);
+  font-size: 1.1rem;
+  text-align: center;
+}
+.setup__daily-preview strong {
+  color: var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 1.25em;
+}
 .radio-stack { display: grid; gap: var(--space-4); }
 .radio-card, .rounding-card { position: relative; display: block; cursor: pointer; }
 .radio-card input, .rounding-card input { position: absolute; width: 1px; height: 1px; opacity: 0; }
