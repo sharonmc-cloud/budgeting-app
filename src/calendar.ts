@@ -9,6 +9,7 @@ export type DatedTransaction = {
   date: string
   category: string
   amountCents: number
+  note?: string
 }
 
 export type DayBalance = {
