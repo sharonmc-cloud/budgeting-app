@@ -1,0 +1,80 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import {
+  getDailyAllocationCents,
+  getMonthDetails,
+  getPeriodDays,
+  getTodayAllocationCents,
+  loadBudgetForMonth,
+  parseMoneyToCents,
+  saveBudget,
+  type BudgetConfiguration,
+} from './budget.ts'
+
+const august16 = new Date(2026, 7, 16, 12)
+
+test('remaining month includes today', () => {
+  assert.equal(getMonthDetails(august16).remainingDays, 16)
+  assert.equal(getPeriodDays('remaining-month', august16), 16)
+  assert.equal(getDailyAllocationCents(150_000, 16, 'exact'), 9_375)
+})
+
+test('full month uses every calendar day', () => {
+  assert.equal(getMonthDetails(august16).totalDays, 31)
+  assert.equal(getPeriodDays('full-month', august16), 31)
+  assert.equal(getDailyAllocationCents(150_000, 31, 'exact'), 4_839)
+})
+
+test('rounding modes preserve total cents using the final day', () => {
+  assert.equal(getDailyAllocationCents(150_000, 16, 'exact'), 9_375)
+  assert.equal(getDailyAllocationCents(150_000, 16, 'down'), 9_300)
+  assert.equal(getDailyAllocationCents(150_000, 16, 'up'), 9_400)
+
+  for (const rounding of ['exact', 'down', 'up'] as const) {
+    const allocations = Array.from({ length: 16 }, (_, index) =>
+      getDailyAllocationCents(150_000, 16, rounding, index + 1),
+    )
+    assert.equal(allocations.reduce((total, value) => total + value, 0), 150_000)
+  }
+})
+
+test('today allocation uses the saved setup period', () => {
+  const configuration: BudgetConfiguration = {
+    version: 1,
+    amountCents: 150_000,
+    monthKey: '2026-08',
+    setupDate: '2026-08-16',
+    interpretation: 'remaining-month',
+    rounding: 'down',
+  }
+  assert.equal(getTodayAllocationCents(configuration, august16), 9_300)
+  assert.equal(getTodayAllocationCents(configuration, new Date(2026, 7, 31, 12)), 10_500)
+})
+
+test('money parsing is cents-safe', () => {
+  assert.equal(parseMoneyToCents('$1,500.25'), 150_025)
+  assert.equal(parseMoneyToCents('10.999'), null)
+  assert.equal(parseMoneyToCents('0'), null)
+})
+
+test('storage persists by month and does not apply an outdated month', () => {
+  const values = new Map<string, string>()
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => values.set(key, value),
+    },
+  })
+  const configuration: BudgetConfiguration = {
+    version: 1,
+    amountCents: 150_000,
+    monthKey: '2026-08',
+    setupDate: '2026-08-16',
+    interpretation: 'full-month',
+    rounding: 'up',
+  }
+  saveBudget(configuration)
+  assert.deepEqual(loadBudgetForMonth('2026-08'), configuration)
+  assert.equal(loadBudgetForMonth('2026-09'), null)
+})
