@@ -322,6 +322,140 @@
   font-weight: 700;
 }
 
+.finish-day {
+  position: static;
+  z-index: 5;
+  margin-top: var(--space-6);
+}
+
+.finish-day__button,
+.day-completion {
+  width: 100%;
+  min-height: 4.5rem;
+  border: var(--border-bold);
+  border-radius: var(--radius-md);
+  color: var(--color-ink);
+  background: #72c9ff;
+  box-shadow: 5px 5px 0 var(--color-ink);
+}
+
+.finish-day__button {
+  padding: var(--space-4);
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, filter 120ms ease, transform 120ms ease;
+}
+
+.finish-day__button:hover {
+  filter: saturate(1.15) brightness(1.03);
+  box-shadow: 7px 7px 0 var(--color-ink);
+  transform: translate(-2px, -2px) rotate(-0.25deg);
+}
+
+.finish-day__button:active {
+  box-shadow: 1px 1px 0 var(--color-ink);
+  transform: translate(4px, 4px);
+}
+
+.day-completion {
+  position: relative;
+  display: grid;
+  place-content: center;
+  padding: var(--space-3) var(--space-4);
+  overflow: hidden;
+  text-align: center;
+  animation: completion-pop 350ms cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+
+.day-completion__title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.day-completion__rollover {
+  margin-top: 0.3rem;
+  font-weight: 700;
+}
+
+.celebration-burst {
+  position: absolute;
+  inset: 50%;
+  pointer-events: none;
+}
+
+.celebration-burst i {
+  position: absolute;
+  width: 0.55rem;
+  height: 0.9rem;
+  border: 2px solid var(--color-ink);
+  background: var(--color-yellow);
+  opacity: 0;
+}
+
+.day-completion--celebrating .celebration-burst i {
+  animation: confetti-burst 600ms ease-out both;
+}
+
+.celebration-burst i:nth-child(2n) {
+  background: var(--color-lavender);
+}
+
+.celebration-burst i:nth-child(3n) {
+  background: var(--color-coral);
+}
+
+.celebration-burst i:nth-child(1) {
+  --burst-x: -9rem;
+  --burst-y: -2rem;
+  --turn: -50deg;
+}
+
+.celebration-burst i:nth-child(2) {
+  --burst-x: -7rem;
+  --burst-y: -4rem;
+  --turn: 35deg;
+}
+
+.celebration-burst i:nth-child(3) {
+  --burst-x: -4rem;
+  --burst-y: -4.5rem;
+  --turn: -25deg;
+}
+
+.celebration-burst i:nth-child(4) {
+  --burst-x: 3rem;
+  --burst-y: -4.5rem;
+  --turn: 55deg;
+}
+
+.celebration-burst i:nth-child(5) {
+  --burst-x: 6rem;
+  --burst-y: -4rem;
+  --turn: -40deg;
+}
+
+.celebration-burst i:nth-child(6) {
+  --burst-x: 8rem;
+  --burst-y: -1.5rem;
+  --turn: 30deg;
+}
+
+.celebration-burst i:nth-child(7) {
+  --burst-x: -6rem;
+  --burst-y: 2.5rem;
+  --turn: 45deg;
+}
+
+.celebration-burst i:nth-child(8) {
+  --burst-x: 6rem;
+  --burst-y: 2.5rem;
+  --turn: -35deg;
+}
+
 button:focus-visible,
 input:focus-visible {
   outline: 4px solid var(--color-focus);
@@ -339,6 +473,28 @@ input:focus-visible {
   from {
     opacity: 0;
     transform: translateY(0.5rem) rotate(-0.5deg);
+  }
+}
+
+@keyframes completion-pop {
+  from {
+    transform: scale(0.96) rotate(-0.5deg);
+  }
+}
+
+@keyframes confetti-burst {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--burst-x), var(--burst-y)) rotate(var(--turn));
   }
 }
 
@@ -452,6 +608,25 @@ input:focus-visible {
   .transaction-row__actions button {
     min-height: 2.75rem;
   }
+
+  .today {
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  }
+
+  .finish-day {
+    position: fixed;
+    right: 0.625rem;
+    bottom: 0;
+    left: 0.625rem;
+    margin: 0;
+    padding: 0.35rem 0.25rem calc(0.5rem + env(safe-area-inset-bottom));
+    background: linear-gradient(to bottom, transparent, var(--color-background) 28%);
+  }
+
+  .finish-day__button,
+  .day-completion {
+    min-height: 4.25rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -462,5 +637,9 @@ input:focus-visible {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .celebration-burst {
+    display: none;
   }
 }

@@ -9,6 +9,10 @@ type Transaction = {
 }
 
 const transactionsStorageKey = 'transactions'
+const dayCompletionsStorageKey = 'dayCompletions'
+const todayKey = '2026-08-08'
+
+type DayCompletions = Record<string, true>
 
 function createTransactionId() {
   return (
@@ -52,6 +56,24 @@ function loadTransactions(): Transaction[] {
   }
 }
 
+function loadDayCompletions(): DayCompletions {
+  try {
+    const storedCompletions = JSON.parse(
+      localStorage.getItem(dayCompletionsStorageKey) ?? '{}',
+    )
+
+    if (typeof storedCompletions !== 'object' || storedCompletions === null) {
+      return {}
+    }
+
+    return Object.fromEntries(
+      Object.entries(storedCompletions).filter(([, completed]) => completed === true),
+    ) as DayCompletions
+  } catch {
+    return {}
+  }
+}
+
 function App() {
   const amountInputRef = useRef<HTMLInputElement>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
@@ -60,6 +82,9 @@ function App() {
     useState<Transaction[]>(loadTransactions)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingAmount, setEditingAmount] = useState('')
+  const [dayCompletions, setDayCompletions] =
+    useState<DayCompletions>(loadDayCompletions)
+  const [showCelebration, setShowCelebration] = useState(false)
 
   useEffect(() => {
     localStorage.setItem(transactionsStorageKey, JSON.stringify(transactions))
@@ -68,6 +93,13 @@ function App() {
   useEffect(() => {
     if (selectedCategory) amountInputRef.current?.focus()
   }, [selectedCategory])
+
+  useEffect(() => {
+    localStorage.setItem(
+      dayCompletionsStorageKey,
+      JSON.stringify(dayCompletions),
+    )
+  }, [dayCompletions])
 
   function addExpense() {
     if (!selectedCategory || !amount) return
@@ -139,7 +171,22 @@ function App() {
   )
 
   const availableToday = previousDayBalance + dailyBaseline - totalSpent
+  const rolloverAmount =
+    availableToday > 0
+      ? `+$${availableToday}`
+      : availableToday < 0
+        ? `−$${Math.abs(availableToday)}`
+        : '$0'
   const categories = ['Food', 'Shopping', 'Fun', 'Life']
+  const isDayComplete = dayCompletions[todayKey] === true
+
+  function finishDay() {
+    setDayCompletions((currentCompletions) => ({
+      ...currentCompletions,
+      [todayKey]: true,
+    }))
+    setShowCelebration(true)
+  }
 
   return (
     <main className="today">
@@ -285,6 +332,31 @@ function App() {
           </div>
         )}
       </section>
+
+      <div className="finish-day">
+        {isDayComplete ? (
+          <section
+            className={`day-completion${
+              showCelebration ? ' day-completion--celebrating' : ''
+            }`}
+            aria-live="polite"
+          >
+            <div className="celebration-burst" aria-hidden="true">
+              {Array.from({ length: 8 }, (_, index) => (
+                <i key={index} />
+              ))}
+            </div>
+            <p className="day-completion__title">Day complete</p>
+            <p className="day-completion__rollover">
+              {rolloverAmount} rolls into tomorrow.
+            </p>
+          </section>
+        ) : (
+          <button className="finish-day__button" type="button" onClick={finishDay}>
+            Finish my day
+          </button>
+        )}
+      </div>
     </main>
   )
 }
