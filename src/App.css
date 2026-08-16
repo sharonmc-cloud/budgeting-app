@@ -215,20 +215,28 @@
   animation: transaction-in 200ms ease-out both;
 }
 
-.transaction-row:nth-child(4n + 1) {
+.transaction-row[data-category='Food'] {
   border-left: 0.75rem solid var(--color-coral);
+  background: color-mix(in srgb, var(--color-coral) 20%, var(--color-surface));
 }
 
-.transaction-row:nth-child(4n + 2) {
+.transaction-row[data-category='Shopping'] {
   border-left: 0.75rem solid var(--color-yellow);
+  background: color-mix(in srgb, var(--color-yellow) 20%, var(--color-surface));
 }
 
-.transaction-row:nth-child(4n + 3) {
+.transaction-row[data-category='Fun'] {
   border-left: 0.75rem solid var(--color-lavender);
+  background: color-mix(
+    in srgb,
+    var(--color-lavender) 20%,
+    var(--color-surface)
+  );
 }
 
-.transaction-row:nth-child(4n) {
+.transaction-row[data-category='Life'] {
   border-left: 0.75rem solid var(--color-mint);
+  background: color-mix(in srgb, var(--color-mint) 20%, var(--color-surface));
 }
 
 .transaction-row__amount {

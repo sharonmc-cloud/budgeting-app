@@ -110,7 +110,11 @@ function App() {
         ) : (
           <div className="transaction-list">
             {transactions.map((transaction, index) => (
-              <p className="transaction-row" key={index}>
+              <p
+                className="transaction-row"
+                data-category={transaction.category}
+                key={index}
+              >
                 <span>{transaction.category}</span>
                 <span className="transaction-row__amount">
                   ${transaction.amount}
