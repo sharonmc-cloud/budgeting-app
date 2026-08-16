@@ -203,8 +203,8 @@
 }
 
 .transaction-row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--space-4);
   margin: 0;
@@ -213,6 +213,82 @@
   border-radius: var(--radius-sm);
   background: var(--color-surface);
   animation: transaction-in 200ms ease-out both;
+}
+
+.transaction-row__details {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.transaction-row__actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.transaction-row__actions button {
+  min-height: 2.25rem;
+  padding: 0.25rem 0.65rem;
+  border: 2px solid var(--color-ink);
+  border-radius: 999px;
+  color: var(--color-ink);
+  background: var(--color-background);
+  box-shadow: 2px 2px 0 var(--color-ink);
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, transform 120ms ease;
+}
+
+.transaction-row__actions button:hover {
+  box-shadow: 3px 3px 0 var(--color-ink);
+  transform: translate(-1px, -1px);
+}
+
+.transaction-row__actions button:active {
+  box-shadow: none;
+  transform: translate(2px, 2px);
+}
+
+.transaction-row__actions .transaction-row__delete {
+  background: var(--color-coral);
+}
+
+.transaction-row__edit-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 700;
+}
+
+.transaction-row__category {
+  font-size: 0.9rem;
+}
+
+.transaction-row__input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  width: 7rem;
+  padding-inline: 0.6rem;
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-sm);
+  background: var(--color-background);
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.transaction-row__input {
+  width: 100%;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
 }
 
 .transaction-row[data-category='Food'] {
@@ -282,6 +358,99 @@ input:focus-visible {
 
   .expense-entry {
     padding: var(--space-6);
+  }
+}
+
+@media (max-width: 34rem) {
+  .today {
+    padding: var(--space-4) 0.875rem var(--space-6);
+  }
+
+  .balance {
+    margin-top: var(--space-4);
+  }
+
+  .balance__amount {
+    font-size: clamp(6.5rem, 29vw, 7.75rem);
+  }
+
+  .balance__label {
+    margin-top: var(--space-3);
+  }
+
+  .balance__rollover {
+    margin-top: 0.25rem;
+  }
+
+  .categories {
+    gap: var(--space-3);
+    margin-top: var(--space-5);
+  }
+
+  .category-button {
+    min-height: 4.75rem;
+    padding: var(--space-3);
+    box-shadow: 4px 4px 0 var(--color-ink);
+    font-size: 1.5rem;
+  }
+
+  .expense-entry {
+    margin-top: var(--space-4);
+    padding: var(--space-4);
+    border-radius: var(--radius-md);
+    box-shadow: 4px 4px 0 var(--color-ink);
+  }
+
+  .expense-entry__title {
+    margin-bottom: var(--space-3);
+    font-size: 1.75rem;
+  }
+
+  .expense-entry__input,
+  .expense-entry__button {
+    min-height: 3.25rem;
+  }
+
+  .expense-entry__button {
+    margin-top: var(--space-3);
+  }
+
+  .spending {
+    margin-top: var(--space-6);
+  }
+
+  .spending__title {
+    margin-bottom: var(--space-3);
+    font-size: 1.75rem;
+  }
+
+  .spending__empty {
+    padding: var(--space-4);
+  }
+
+  .transaction-list {
+    gap: 0.625rem;
+  }
+
+  .transaction-row {
+    gap: 0.625rem;
+    padding: 0.625rem 0.75rem;
+  }
+
+  .transaction-row--editing {
+    grid-template-columns: 1fr;
+  }
+
+  .transaction-row--editing .transaction-row__actions {
+    justify-content: flex-end;
+  }
+
+  .transaction-row--editing .transaction-row__edit-label {
+    justify-content: space-between;
+  }
+
+  .transaction-row__actions button {
+    min-height: 2.75rem;
   }
 }
 
