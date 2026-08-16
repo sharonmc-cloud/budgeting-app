@@ -1,6 +1,7 @@
 import {
   getAllocationForDate,
-  type BudgetConfiguration,
+  getConfigurationForDate,
+  type BudgetConfigurationHistory,
 } from './budget.ts'
 
 export type DatedTransaction = {
@@ -34,7 +35,7 @@ export function dateRange(start: string, end: string) {
 export function calculateDayBalances(
   startDate: string,
   endDate: string,
-  configurations: Record<string, BudgetConfiguration>,
+  configurations: BudgetConfigurationHistory,
   transactions: DatedTransaction[],
 ) {
   let priorBalanceCents = 0
@@ -43,8 +44,8 @@ export function calculateDayBalances(
     const month = date.slice(0, 7)
     if (month !== previousMonth) priorBalanceCents = 0
     previousMonth = month
-    const configuration = configurations[month]
-    const allocationCents = configuration && date >= configuration.setupDate
+    const configuration = getConfigurationForDate(configurations[month] ?? [], date)
+    const allocationCents = configuration
       ? getAllocationForDate(configuration, date)
       : 0
     const spentCents = transactions
