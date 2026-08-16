@@ -695,3 +695,24 @@ input:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+
+.primary-nav { display: grid; grid-template-columns: 1fr 1fr; width: min(100%, 20rem); margin: 0 auto var(--space-6); border: var(--border-bold); border-radius: 999px; overflow: hidden; box-shadow: 3px 3px 0 var(--color-ink); }
+.primary-nav button { min-height: 2.75rem; border: 0; background: var(--color-surface); font: 700 1rem var(--font-display); cursor: pointer; }
+.primary-nav button + button { border-left: 2px solid var(--color-ink); }
+.primary-nav button[aria-current='page'] { background: var(--color-yellow); }
+.back-button, .secondary-button { min-height: 2.75rem; padding: .5rem 1rem; border: 2px solid var(--color-ink); border-radius: 999px; background: var(--color-surface); box-shadow: 3px 3px 0 var(--color-ink); font-weight: 700; cursor: pointer; }
+.history__header { margin: var(--space-7) 0 var(--space-6); }
+.history__header h1 { margin: var(--space-3) 0 0; font: 700 clamp(4rem, 18vw, 7rem)/.8 var(--font-display); letter-spacing: -.05em; }
+.history__header p:last-child { color: var(--color-muted); }
+.history-row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-3); padding: var(--space-4); border: var(--border-bold); border-radius: var(--radius-md); color: var(--color-ink); background: var(--color-surface); box-shadow: 4px 4px 0 var(--color-ink); text-align: left; cursor: pointer; }
+.history-row span:first-child { display: grid; gap: .2rem; }
+.history-row strong, .history-row__balance { font: 700 1.15rem var(--font-display); }
+.history-row small { color: var(--color-muted); }
+.history-row__balance { white-space: nowrap; }
+.read-only, .recalculation-notice { margin-top: var(--space-6); padding: var(--space-4); border: 2px solid var(--color-ink); border-radius: var(--radius-sm); background: var(--color-lavender); font-weight: 700; text-align: center; }
+.recalculation-notice { background: var(--color-mint); }
+.modal-backdrop { min-height: 100vh; display: grid; place-items: center; padding: var(--space-4); background: var(--color-background); }
+.month-modal { width: min(100%, 34rem); padding: var(--space-6); border: var(--border-bold); border-radius: var(--radius-lg); background: var(--color-surface); box-shadow: 8px 8px 0 var(--color-ink); }
+.month-modal h1 { margin: var(--space-4) 0; font: 700 clamp(3rem, 13vw, 5rem)/.85 var(--font-display); letter-spacing: -.04em; }
+.month-modal__actions { display: grid; gap: var(--space-4); margin-top: var(--space-6); }
+.month-modal .secondary-button { border-radius: var(--radius-md); }
