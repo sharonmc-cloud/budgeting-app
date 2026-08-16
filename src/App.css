@@ -372,6 +372,8 @@
   animation: transaction-in 200ms ease-out both;
 }
 
+.transaction-row--menu-open { z-index: 10; }
+
 .transaction-row__labels { display: grid; min-width: 0; gap: .15rem; }
 .transaction-row__labels strong { overflow: hidden; font: 700 1.2rem/1.1 var(--font-display); text-overflow: ellipsis; white-space: nowrap; }
 .transaction-row__labels small { color: var(--color-muted); font-size: .9rem; }
