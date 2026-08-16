@@ -13,7 +13,7 @@ import {
   type BudgetConfiguration,
   type RoundingPreference,
 } from './budget'
-import { calculateDayBalances, type DatedTransaction } from './calendar'
+import { calculateDayBalances, calculateMonthlySummary, type DatedTransaction, type MonthlySummary } from './calendar'
 
 const transactionsStorageKey = 'transactions'
 const dayCompletionsStorageKey = 'dayCompletions'
@@ -23,10 +23,39 @@ type DayCompletions = Record<string, boolean>
 type View = 'today' | 'history' | 'detail' | 'settings'
 
 const currency = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2 })
-const categories = ['Food', 'Shopping', 'Fun', 'Life']
+const categories = ['Food', 'Shopping', 'Fun', 'Life'] as const
 const createId = () => globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
 const money = (cents: number) => currency.format(cents / 100)
 const formatDate = (key: string, weekday = true) => new Intl.DateTimeFormat(undefined, { ...(weekday ? { weekday: 'long' as const } : {}), month: 'long', day: 'numeric', year: key.slice(0, 4) === getLocalDateKey().slice(0, 4) ? undefined : 'numeric' }).format(new Date(`${key}T12:00:00`))
+const formatMonth = (key: string) => new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date(`${key}-01T12:00:00`))
+
+function SpendingDonut({ summary }: { summary: MonthlySummary }) {
+  const description = categories.map((category) => `${category} ${money(summary.categoryTotals[category])}`).join(', ')
+  let offset = 0
+  return <svg className="monthly-donut" viewBox="0 0 42 42" role="img" aria-label={summary.spentCents ? `Spending by category: ${description}.` : 'No spending recorded for this month.'}>
+    <circle className="monthly-donut__track" cx="21" cy="21" r="15.9155" pathLength="100" />
+    {summary.spentCents > 0 && categories.map((category) => {
+      const portion = summary.categoryTotals[category] / summary.spentCents * 100
+      const dashOffset = -offset
+      offset += portion
+      return portion > 0 ? <circle className="monthly-donut__segment" data-category={category} key={category} cx="21" cy="21" r="15.9155" pathLength="100" strokeDasharray={`${portion} ${100 - portion}`} strokeDashoffset={dashOffset} /> : null
+    })}
+  </svg>
+}
+
+function MonthlyHistorySummary({ summary, current }: { summary: MonthlySummary; current: boolean }) {
+  return <div className="monthly-summary">
+    <dl className="monthly-summary__metrics">
+      <div><dt>Budgeted</dt><dd>{money(summary.budgetedCents)}</dd></div>
+      <div><dt>Spent</dt><dd>{money(summary.spentCents)}</dd></div>
+      <div><dt>{current ? 'Current balance' : 'Ending balance'}</dt><dd>{money(summary.balanceCents)}</dd></div>
+    </dl>
+    <div className="monthly-summary__breakdown">
+      <SpendingDonut summary={summary} />
+      <ul aria-label="Category spending totals">{categories.map((category) => <li data-category={category} key={category}><span aria-hidden="true" /><strong>{category}</strong> {money(summary.categoryTotals[category])}</li>)}</ul>
+    </div>
+  </div>
+}
 
 function loadTransactions(today: string): DatedTransaction[] {
   try {
@@ -36,7 +65,7 @@ function loadTransactions(today: string): DatedTransaction[] {
     const result = stored.flatMap((value): DatedTransaction[] => {
       if (!value || typeof value !== 'object') return []
       const item = value as Record<string, unknown>
-      if (typeof item.category !== 'string') return []
+      if (typeof item.category !== 'string' || !categories.includes(item.category as typeof categories[number])) return []
       const amountCents = Number.isSafeInteger(item.amountCents) ? Number(item.amountCents) : typeof item.amount === 'number' && Number.isFinite(item.amount) ? Math.round(item.amount * 100) : NaN
       if (!Number.isSafeInteger(amountCents) || amountCents < 0) return []
       const note = typeof item.note === 'string' && item.note.trim() ? item.note.trim() : undefined
@@ -86,6 +115,15 @@ function App() {
   const trackingStart = Object.values(configurations).flat().map((item) => item.setupDate).sort()[0] ?? today
   const balances = useMemo(() => calculateDayBalances(trackingStart, today, configurations, transactions), [trackingStart, today, configurations, transactions])
   const balanceMap = new Map(balances.map((balance) => [balance.date, balance]))
+  const historyMonths = useMemo(() => {
+    const keys = new Set([monthKey, ...Object.keys(configurations).filter((key) => key <= monthKey)])
+    transactions.forEach((transaction) => { if (transaction.date >= trackingStart && transaction.date <= today) keys.add(transaction.date.slice(0, 7)) })
+    return [...keys].sort().reverse().map((key) => ({
+      key,
+      days: balances.filter((day) => day.date.slice(0, 7) === key && day.date < today).reverse(),
+      summary: calculateMonthlySummary(key, balances, transactions, categories),
+    }))
+  }, [balances, configurations, monthKey, today, trackingStart, transactions])
 
   useEffect(() => localStorage.setItem(transactionsStorageKey, JSON.stringify(transactions)), [transactions])
   useEffect(() => localStorage.setItem(dayCompletionsStorageKey, JSON.stringify(completions)), [completions])
@@ -146,7 +184,7 @@ function App() {
 
   if (view === 'settings') return <main className="today"><PrimaryNav view={view} navigate={navigate} /><Settings configuration={currentConfiguration!} today={today} onSave={saveSettings} /></main>
 
-  if (view === 'history') return <main className="today history"><PrimaryNav view={view} navigate={navigate} /><header className="history__header"><p className="setup__eyebrow">Your days</p><h1>History</h1><p>Every budgeting day, newest first.</p></header>{balances.filter((item) => item.date < today).reverse().map((day) => <button className="history-row" key={day.date} onClick={() => navigate('detail', day.date)}><span><strong>{formatDate(day.date)}</strong><small>{day.spentCents ? `${money(day.spentCents)} spent` : 'No spending'}</small></span><span className="history-row__balance">{money(day.endingBalanceCents)} <span aria-hidden="true">→</span></span></button>)}</main>
+  if (view === 'history') return <main className="today history"><PrimaryNav view={view} navigate={navigate} /><header className="history__header"><p className="setup__eyebrow">Your days</p><h1>History</h1><p>Every budgeting day, newest first.</p></header>{historyMonths.map((month) => <section className="history-month" aria-labelledby={`month-${month.key}`} key={month.key}><h2 id={`month-${month.key}`}>{formatMonth(month.key)}</h2><MonthlyHistorySummary summary={month.summary} current={month.key === monthKey} /><div className="history-month__days">{month.days.map((day) => <button className="history-row" key={day.date} onClick={() => navigate('detail', day.date)}><span><strong>{formatDate(day.date)}</strong><small>{day.spentCents ? `${money(day.spentCents)} spent` : 'No spending'}</small></span><span className="history-row__balance">{money(day.endingBalanceCents)} <span aria-hidden="true">→</span></span></button>)}</div></section>)}</main>
 
   return <main className="today"><PrimaryNav view={isToday ? 'today' : 'history'} navigate={navigate} />{!isToday && <button className="back-button" onClick={() => navigate('history')}>← Back to History</button>}<header className="today__header"><p className="today__date">{formatDate(activeDate)}</p><div className="balance"><h1 className="balance__amount">{money(activeBalance.endingBalanceCents)}</h1><p className="balance__label">{isToday ? 'available today' : 'ending balance'}</p><p className="balance__rollover">Includes {money(activeBalance.priorBalanceCents)} from the prior day</p></div></header>
   {editable ? <><div className="categories" aria-label="Expense categories">{categories.map((category) => <CategoryButton key={category} label={category} selected={selectedCategory === category} onClick={() => setSelectedCategory(category)} />)}</div>{selectedCategory && <section className="expense-entry" aria-labelledby="expense-title"><h2 className="expense-entry__title" id="expense-title">{selectedCategory}</h2><form onSubmit={(event) => { event.preventDefault(); addExpense() }}><label className="expense-entry__label">Amount<input ref={inputRef} className="expense-entry__input" inputMode="decimal" placeholder="$0" value={amount} onChange={(event) => setAmount(event.target.value)} /></label><label className="expense-entry__label expense-entry__label--note">Note<input className="expense-entry__note" type="text" value={note} onChange={(event) => setNote(event.target.value)} /></label><button className="expense-entry__button" type="submit">Add {amount ? `$${amount}` : '$0'}</button></form></section>}</> : <p className="read-only" role="note">Previous months are view only.</p>}

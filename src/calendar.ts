@@ -20,6 +20,14 @@ export type DayBalance = {
   endingBalanceCents: number
 }
 
+export type MonthlySummary = {
+  monthKey: string
+  budgetedCents: number
+  spentCents: number
+  balanceCents: number
+  categoryTotals: Record<string, number>
+}
+
 export function dateRange(start: string, end: string) {
   if (start > end) return []
   const result: string[] = []
@@ -57,4 +65,28 @@ export function calculateDayBalances(
     priorBalanceCents = endingBalanceCents
     return balance
   })
+}
+
+export function calculateMonthlySummary(
+  monthKey: string,
+  balances: DayBalance[],
+  transactions: DatedTransaction[],
+  categories: readonly string[],
+): MonthlySummary {
+  const monthDays = balances.filter((day) => day.date.slice(0, 7) === monthKey)
+  const trackedDates = new Set(monthDays.map((day) => day.date))
+  const monthTransactions = transactions.filter((transaction) => trackedDates.has(transaction.date))
+  const categoryTotals = Object.fromEntries(categories.map((category) => [category, 0]))
+
+  monthTransactions.forEach((transaction) => {
+    if (transaction.category in categoryTotals) categoryTotals[transaction.category] += transaction.amountCents
+  })
+
+  return {
+    monthKey,
+    budgetedCents: monthDays.reduce((sum, day) => sum + day.allocationCents, 0),
+    spentCents: monthTransactions.reduce((sum, transaction) => sum + transaction.amountCents, 0),
+    balanceCents: monthDays.at(-1)?.endingBalanceCents ?? 0,
+    categoryTotals,
+  }
 }
