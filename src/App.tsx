@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import CategoryButton from './components/CategoryButton'
+import BudgetSetup from './components/BudgetSetup'
+import {
+  getMonthKey,
+  getTodayAllocationCents,
+  loadBudgetForMonth,
+  saveBudget,
+  type BudgetConfiguration,
+} from './budget'
 
 type Transaction = {
   id: string
@@ -100,6 +108,8 @@ function loadTransactions(): Transaction[] {
 }
 
 function App() {
+  const [budgetConfiguration, setBudgetConfiguration] =
+    useState<BudgetConfiguration | null>(() => loadBudgetForMonth(getMonthKey()))
   const amountInputRef = useRef<HTMLInputElement>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
@@ -174,7 +184,16 @@ function App() {
     if (editingId === id) cancelEditing()
   }
 
-  const dailyBaseline = 50
+  function completeBudgetSetup(configuration: BudgetConfiguration) {
+    saveBudget(configuration)
+    setBudgetConfiguration(configuration)
+  }
+
+  if (!budgetConfiguration) {
+    return <BudgetSetup onComplete={completeBudgetSetup} />
+  }
+
+  const dailyBaseline = getTodayAllocationCents(budgetConfiguration) / 100
 
   const historicalTransactions = [
     { date: '2026-08-06', category: 'Food', amount: 20 },
@@ -202,7 +221,13 @@ function App() {
   return (
     <main className="today">
       <header className="today__header">
-        <p className="today__date">Saturday, August 8</p>
+        <p className="today__date">
+          {new Intl.DateTimeFormat(undefined, {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          }).format(new Date())}
+        </p>
 
         <div className="balance">
           <h1 className="balance__amount">${availableToday}</h1>
