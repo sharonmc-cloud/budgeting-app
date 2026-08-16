@@ -9,6 +9,53 @@ type Transaction = {
 }
 
 const transactionsStorageKey = 'transactions'
+const dayCompletionsStorageKey = 'dayCompletions'
+
+type DayCompletions = Record<string, boolean>
+
+function getTodayKey() {
+  const today = new Date()
+  const offsetDate = new Date(
+    today.getTime() - today.getTimezoneOffset() * 60 * 1000,
+  )
+
+  return offsetDate.toISOString().slice(0, 10)
+}
+
+function loadDayCompletions(): DayCompletions {
+  try {
+    const storedCompletions = JSON.parse(
+      localStorage.getItem(dayCompletionsStorageKey) ?? '{}',
+    )
+
+    if (
+      typeof storedCompletions !== 'object' ||
+      storedCompletions === null ||
+      Array.isArray(storedCompletions)
+    ) {
+      return {}
+    }
+
+    return Object.entries(storedCompletions).reduce<DayCompletions>(
+      (completions, [date, completed]) => {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date) && completed === true) {
+          completions[date] = true
+        }
+
+        return completions
+      },
+      {},
+    )
+  } catch {
+    return {}
+  }
+}
+
+function formatRollover(amount: number) {
+  if (amount > 0) return `+$${amount}`
+  if (amount < 0) return `−$${Math.abs(amount)}`
+  return '$0'
+}
 
 function createTransactionId() {
   return (
@@ -60,10 +107,20 @@ function App() {
     useState<Transaction[]>(loadTransactions)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingAmount, setEditingAmount] = useState('')
+  const [dayCompletions, setDayCompletions] =
+    useState<DayCompletions>(loadDayCompletions)
+  const todayKey = getTodayKey()
 
   useEffect(() => {
     localStorage.setItem(transactionsStorageKey, JSON.stringify(transactions))
   }, [transactions])
+
+  useEffect(() => {
+    localStorage.setItem(
+      dayCompletionsStorageKey,
+      JSON.stringify(dayCompletions),
+    )
+  }, [dayCompletions])
 
   useEffect(() => {
     if (selectedCategory) amountInputRef.current?.focus()
@@ -140,6 +197,7 @@ function App() {
 
   const availableToday = previousDayBalance + dailyBaseline - totalSpent
   const categories = ['Food', 'Shopping', 'Fun', 'Life']
+  const isTodayComplete = dayCompletions[todayKey] === true
 
   return (
     <main className="today">
@@ -279,6 +337,45 @@ function App() {
               </div>
             ))}
           </div>
+        )}
+      </section>
+
+      <section
+        className={`day-finish${isTodayComplete ? ' day-finish--complete' : ''}`}
+        aria-labelledby={isTodayComplete ? 'day-complete-title' : undefined}
+      >
+        {isTodayComplete ? (
+          <div className="day-complete" role="status" aria-live="polite">
+            <div className="celebration" aria-hidden="true">
+              {Array.from({ length: 12 }, (_, index) => (
+                <span key={index} />
+              ))}
+            </div>
+            <p className="day-complete__eyebrow">Checked in</p>
+            <h2 className="day-complete__title" id="day-complete-title">
+              Day complete.
+            </h2>
+            <p className="day-complete__rollover">
+              <strong>{formatRollover(availableToday)}</strong> rolls into
+              tomorrow.
+            </p>
+          </div>
+        ) : (
+          <button
+            className="day-finish__button"
+            type="button"
+            onClick={() =>
+              setDayCompletions((completions) => ({
+                ...completions,
+                [todayKey]: true,
+              }))
+            }
+          >
+            <span>Finish my day</span>
+            <span className="day-finish__button-mark" aria-hidden="true">
+              ✓
+            </span>
+          </button>
         )}
       </section>
     </main>
