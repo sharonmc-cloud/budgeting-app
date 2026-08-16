@@ -118,6 +118,43 @@ export function loadBudgetForMonth(monthKey: string) {
   }
 }
 
+export function loadBudgetConfigurations(): Record<string, BudgetConfiguration> {
+  try {
+    const stored: unknown = JSON.parse(localStorage.getItem(budgetStorageKey) ?? '{}')
+    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {}
+    return Object.entries(stored).reduce<Record<string, BudgetConfiguration>>(
+      (result, [key, value]) => {
+        if (isBudgetConfiguration(value)) result[key] = value
+        return result
+      },
+      {},
+    )
+  } catch {
+    return {}
+  }
+}
+
+export function getAllocationForDate(
+  configuration: BudgetConfiguration,
+  dateKey: string,
+) {
+  const date = new Date(`${dateKey}T12:00:00`)
+  const setupDay = Number(configuration.setupDate.slice(-2))
+  const totalDays = getMonthDetails(date).totalDays
+  const days = configuration.interpretation === 'remaining-month'
+    ? totalDays - setupDay + 1
+    : totalDays
+  const dayNumber = configuration.interpretation === 'remaining-month'
+    ? date.getDate() - setupDay + 1
+    : date.getDate()
+  return getDailyAllocationCents(
+    configuration.amountCents,
+    days,
+    configuration.rounding,
+    dayNumber,
+  )
+}
+
 export function saveBudget(configuration: BudgetConfiguration) {
   let configurations: Record<string, unknown> = {}
   try {
