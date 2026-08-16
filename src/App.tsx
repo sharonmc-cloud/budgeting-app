@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import CategoryButton from './components/CategoryButton'
 import BudgetSetup from './components/BudgetSetup'
+import Settings from './components/Settings'
 import {
   getLocalDateKey,
   getMonthDetails,
@@ -10,6 +11,7 @@ import {
   parseMoneyToCents,
   saveBudget,
   type BudgetConfiguration,
+  type RoundingPreference,
 } from './budget'
 import { calculateDayBalances, type DatedTransaction } from './calendar'
 
@@ -17,7 +19,7 @@ const transactionsStorageKey = 'transactions'
 const dayCompletionsStorageKey = 'dayCompletions'
 const migrationKey = 'calendarDayMigrationVersion'
 type DayCompletions = Record<string, boolean>
-type View = 'today' | 'history' | 'detail'
+type View = 'today' | 'history' | 'detail' | 'settings'
 
 const currency = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD', minimumFractionDigits: 0, maximumFractionDigits: 2 })
 const categories = ['Food', 'Shopping', 'Fun', 'Life']
@@ -73,9 +75,9 @@ function App() {
   const [notice, setNotice] = useState('')
   const [showSetup, setShowSetup] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const currentConfiguration = configurations[monthKey]
-  const previousConfiguration = Object.values(configurations).filter((item) => item.monthKey < monthKey).sort((a, b) => b.monthKey.localeCompare(a.monthKey))[0]
-  const trackingStart = Object.values(configurations).map((item) => item.setupDate).sort()[0] ?? today
+  const currentConfiguration = configurations[monthKey]?.at(-1)
+  const previousConfiguration = Object.entries(configurations).filter(([key]) => key < monthKey).sort(([a], [b]) => b.localeCompare(a))[0]?.[1].at(-1)
+  const trackingStart = Object.values(configurations).flat().map((item) => item.setupDate).sort()[0] ?? today
   const balances = useMemo(() => calculateDayBalances(trackingStart, today, configurations, transactions), [trackingStart, today, configurations, transactions])
   const balanceMap = new Map(balances.map((balance) => [balance.date, balance]))
 
@@ -83,7 +85,7 @@ function App() {
   useEffect(() => localStorage.setItem(dayCompletionsStorageKey, JSON.stringify(completions)), [completions])
   useEffect(() => { if (selectedCategory) inputRef.current?.focus() }, [selectedCategory])
 
-  const saveConfiguration = (configuration: BudgetConfiguration) => { saveBudget(configuration); setConfigurations((all) => ({ ...all, [configuration.monthKey]: configuration })); setShowSetup(false) }
+  const saveConfiguration = (configuration: BudgetConfiguration) => { saveBudget(configuration); setConfigurations(loadBudgetConfigurations()); setShowSetup(false) }
   if (!currentConfiguration && (!previousConfiguration || showSetup)) return <BudgetSetup onComplete={saveConfiguration} />
   if (!currentConfiguration && previousConfiguration) {
     const details = getMonthDetails()
@@ -112,6 +114,12 @@ function App() {
   function deleteTransaction(id: string) { setTransactions((all) => all.filter((item) => item.id !== id)); setEditingId(null); changed() }
   function navigate(next: View, date = today) { setView(next); setSelectedDate(date); setEditingId(null); resetEntry(); setNotice('') }
 
+  function saveSettings(amountCents: number, rounding: RoundingPreference) {
+    saveConfiguration({ version: 1, amountCents, monthKey, setupDate: today, interpretation: 'remaining-month', rounding })
+  }
+
+  if (view === 'settings') return <main className="today"><PrimaryNav view={view} navigate={navigate} /><Settings configuration={currentConfiguration!} today={today} onSave={saveSettings} /></main>
+
   if (view === 'history') return <main className="today history"><PrimaryNav view={view} navigate={navigate} /><header className="history__header"><p className="setup__eyebrow">Your days</p><h1>History</h1><p>Every budgeting day, newest first.</p></header>{balances.filter((item) => item.date < today).reverse().map((day) => <button className="history-row" key={day.date} onClick={() => navigate('detail', day.date)}><span><strong>{formatDate(day.date)}</strong><small>{day.spentCents ? `${money(day.spentCents)} spent` : 'No spending'}</small></span><span className="history-row__balance">{money(day.endingBalanceCents)} <span aria-hidden="true">→</span></span></button>)}</main>
 
   return <main className="today"><PrimaryNav view={isToday ? 'today' : 'history'} navigate={navigate} />{!isToday && <button className="back-button" onClick={() => navigate('history')}>← Back to History</button>}<header className="today__header"><p className="today__date">{formatDate(activeDate)}</p><div className="balance"><h1 className="balance__amount">{money(activeBalance.endingBalanceCents)}</h1><p className="balance__label">{isToday ? 'available today' : 'ending balance'}</p><p className="balance__rollover">Includes {money(activeBalance.priorBalanceCents)} from the prior day</p></div></header>
@@ -121,5 +129,5 @@ function App() {
   {isToday && <section className={`day-finish${completions[today] ? ' day-finish--complete' : ''}`}>{completions[today] ? <div className="day-complete" role="status"><div className="celebration" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <span key={i} />)}</div><p className="day-complete__eyebrow">Checked in</p><h2 className="day-complete__title">Day complete.</h2><p className="day-complete__rollover"><strong>{money(activeBalance.endingBalanceCents)}</strong> rolls into tomorrow.</p></div> : <button className="day-finish__button" onClick={() => setCompletions((all) => ({ ...all, [today]: true }))}><span>Finish my day</span><span className="day-finish__button-mark" aria-hidden="true">✓</span></button>}</section>}</main>
 }
 
-function PrimaryNav({ view, navigate }: { view: View; navigate: (view: View, date?: string) => void }) { return <nav className="primary-nav" aria-label="Primary"><button aria-current={view === 'today' ? 'page' : undefined} onClick={() => navigate('today')}>Today</button><button aria-current={view !== 'today' ? 'page' : undefined} onClick={() => navigate('history')}>History</button></nav> }
+function PrimaryNav({ view, navigate }: { view: View; navigate: (view: View, date?: string) => void }) { return <nav className="primary-nav" aria-label="Primary"><button aria-current={view === 'today' ? 'page' : undefined} onClick={() => navigate('today')}>Today</button><button aria-current={view === 'history' || view === 'detail' ? 'page' : undefined} onClick={() => navigate('history')}>History</button><button aria-current={view === 'settings' ? 'page' : undefined} onClick={() => navigate('settings')}>Settings</button></nav> }
 export default App

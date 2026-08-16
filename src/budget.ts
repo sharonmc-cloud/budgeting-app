@@ -10,6 +10,8 @@ export type BudgetConfiguration = {
   rounding: RoundingPreference
 }
 
+export type BudgetConfigurationHistory = Record<string, BudgetConfiguration[]>
+
 export const budgetStorageKey = 'budgetConfigurations'
 
 export function getLocalDateKey(date = new Date()) {
@@ -107,31 +109,48 @@ function isBudgetConfiguration(value: unknown): value is BudgetConfiguration {
   )
 }
 
-export function loadBudgetForMonth(monthKey: string) {
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem(budgetStorageKey) ?? '{}')
-    if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return null
-    const configuration = (stored as Record<string, unknown>)[monthKey]
-    return isBudgetConfiguration(configuration) ? configuration : null
-  } catch {
-    return null
-  }
+function normalizeMonth(value: unknown): BudgetConfiguration[] {
+  const values = Array.isArray(value) ? value : [value]
+  const byDate = new Map<string, BudgetConfiguration>()
+  values.forEach((item) => {
+    if (isBudgetConfiguration(item)) byDate.set(item.setupDate, item)
+  })
+  return [...byDate.values()].sort((a, b) => a.setupDate.localeCompare(b.setupDate))
 }
 
-export function loadBudgetConfigurations(): Record<string, BudgetConfiguration> {
+export function loadBudgetForMonth(monthKey: string) {
+  const history = loadBudgetConfigurations()[monthKey] ?? []
+  return history.at(-1) ?? null
+}
+
+export function loadBudgetConfigurations(): BudgetConfigurationHistory {
   try {
     const stored: unknown = JSON.parse(localStorage.getItem(budgetStorageKey) ?? '{}')
     if (!stored || typeof stored !== 'object' || Array.isArray(stored)) return {}
-    return Object.entries(stored).reduce<Record<string, BudgetConfiguration>>(
+    const normalized = Object.entries(stored).reduce<BudgetConfigurationHistory>(
       (result, [key, value]) => {
-        if (isBudgetConfiguration(value)) result[key] = value
+        const configurations = normalizeMonth(value).filter((item) => item.monthKey === key)
+        if (configurations.length) result[key] = configurations
         return result
       },
       {},
     )
+    // Legacy storage used a single object per month. Writing the normalized
+    // shape here makes migration deterministic and safe to repeat.
+    if (JSON.stringify(stored) !== JSON.stringify(normalized)) {
+      localStorage.setItem(budgetStorageKey, JSON.stringify(normalized))
+    }
+    return normalized
   } catch {
     return {}
   }
+}
+
+export function getConfigurationForDate(
+  configurations: BudgetConfiguration[],
+  dateKey: string,
+) {
+  return configurations.filter((item) => item.setupDate <= dateKey).at(-1) ?? null
 }
 
 export function getAllocationForDate(
@@ -156,17 +175,9 @@ export function getAllocationForDate(
 }
 
 export function saveBudget(configuration: BudgetConfiguration) {
-  let configurations: Record<string, unknown> = {}
-  try {
-    const stored: unknown = JSON.parse(localStorage.getItem(budgetStorageKey) ?? '{}')
-    if (stored && typeof stored === 'object' && !Array.isArray(stored)) {
-      configurations = stored as Record<string, unknown>
-    }
-  } catch {
-    // Replace only malformed budget setup data; transaction data is stored separately.
-  }
-  localStorage.setItem(
-    budgetStorageKey,
-    JSON.stringify({ ...configurations, [configuration.monthKey]: configuration }),
-  )
+  const configurations = loadBudgetConfigurations()
+  const month = configurations[configuration.monthKey] ?? []
+  configurations[configuration.monthKey] = [...month.filter((item) => item.setupDate !== configuration.setupDate), configuration]
+    .sort((a, b) => a.setupDate.localeCompare(b.setupDate))
+  localStorage.setItem(budgetStorageKey, JSON.stringify(configurations))
 }

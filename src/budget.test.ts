@@ -6,6 +6,7 @@ import {
   getPeriodDays,
   getTodayAllocationCents,
   loadBudgetForMonth,
+  loadBudgetConfigurations,
   parseMoneyToCents,
   saveBudget,
   type BudgetConfiguration,
@@ -76,5 +77,17 @@ test('storage persists by month and does not apply an outdated month', () => {
   }
   saveBudget(configuration)
   assert.deepEqual(loadBudgetForMonth('2026-08'), configuration)
+  assert.deepEqual(loadBudgetConfigurations()['2026-08'], [configuration])
   assert.equal(loadBudgetForMonth('2026-09'), null)
+})
+
+test('legacy single-month configurations migrate once and same-day updates replace', () => {
+  const values = new Map<string, string>()
+  const original: BudgetConfiguration = { version: 1, amountCents: 10000, monthKey: '2026-08', setupDate: '2026-08-01', interpretation: 'full-month', rounding: 'exact' }
+  values.set('budgetConfigurations', JSON.stringify({ '2026-08': original }))
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value) } })
+  assert.deepEqual(loadBudgetConfigurations()['2026-08'], [original])
+  saveBudget({ ...original, amountCents: 12000 })
+  assert.equal(loadBudgetConfigurations()['2026-08'].length, 1)
+  assert.equal(loadBudgetForMonth('2026-08')?.amountCents, 12000)
 })
