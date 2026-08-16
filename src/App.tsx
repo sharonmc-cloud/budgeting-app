@@ -1,13 +1,73 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import CategoryButton from './components/CategoryButton'
 
+type Transaction = {
+  id: string
+  category: string
+  amount: number
+}
+
+const transactionsStorageKey = 'transactions'
+
+function createTransactionId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  )
+}
+
+function loadTransactions(): Transaction[] {
+  try {
+    const storedTransactions = JSON.parse(
+      localStorage.getItem(transactionsStorageKey) ?? '[]',
+    )
+
+    if (!Array.isArray(storedTransactions)) return []
+
+    return storedTransactions.flatMap((transaction) => {
+      if (
+        typeof transaction !== 'object' ||
+        transaction === null ||
+        typeof transaction.category !== 'string' ||
+        typeof transaction.amount !== 'number' ||
+        !Number.isFinite(transaction.amount)
+      ) {
+        return []
+      }
+
+      return [
+        {
+          id:
+            typeof transaction.id === 'string' && transaction.id
+              ? transaction.id
+              : createTransactionId(),
+          category: transaction.category,
+          amount: transaction.amount,
+        },
+      ]
+    })
+  } catch {
+    return []
+  }
+}
+
 function App() {
+  const amountInputRef = useRef<HTMLInputElement>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
-  const [transactions, setTransactions] = useState<
-    { category: string; amount: number }[]
-  >([])
+  const [transactions, setTransactions] =
+    useState<Transaction[]>(loadTransactions)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingAmount, setEditingAmount] = useState('')
+
+  useEffect(() => {
+    localStorage.setItem(transactionsStorageKey, JSON.stringify(transactions))
+  }, [transactions])
+
+  useEffect(() => {
+    if (selectedCategory) amountInputRef.current?.focus()
+  }, [selectedCategory])
 
   function addExpense() {
     if (!selectedCategory || !amount) return
@@ -15,6 +75,7 @@ function App() {
     setTransactions([
       ...transactions,
       {
+        id: createTransactionId(),
         category: selectedCategory,
         amount: Number(amount),
       },
@@ -22,6 +83,38 @@ function App() {
 
     setAmount('')
     setSelectedCategory(null)
+  }
+
+  function startEditing(transaction: Transaction) {
+    setEditingId(transaction.id)
+    setEditingAmount(String(transaction.amount))
+  }
+
+  function cancelEditing() {
+    setEditingId(null)
+    setEditingAmount('')
+  }
+
+  function saveTransaction(id: string) {
+    const updatedAmount = Number(editingAmount)
+    if (!editingAmount || !Number.isFinite(updatedAmount) || updatedAmount < 0)
+      return
+
+    setTransactions((currentTransactions) =>
+      currentTransactions.map((transaction) =>
+        transaction.id === id
+          ? { ...transaction, amount: updatedAmount }
+          : transaction,
+      ),
+    )
+    cancelEditing()
+  }
+
+  function deleteTransaction(id: string) {
+    setTransactions((currentTransactions) =>
+      currentTransactions.filter((transaction) => transaction.id !== id),
+    )
+    if (editingId === id) cancelEditing()
   }
 
   const dailyBaseline = 50
@@ -79,25 +172,29 @@ function App() {
             {selectedCategory}
           </h2>
 
-          <label className="expense-entry__label">
-            Amount
-            <input
-              className="expense-entry__input"
-              type="number"
-              inputMode="decimal"
-              placeholder="$0"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-            />
-          </label>
-
-          <button
-            className="expense-entry__button"
-            type="button"
-            onClick={addExpense}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              addExpense()
+            }}
           >
-            Add ${amount || '0'}
-          </button>
+            <label className="expense-entry__label">
+              Amount
+              <input
+                ref={amountInputRef}
+                className="expense-entry__input"
+                type="number"
+                inputMode="decimal"
+                placeholder="$0"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+              />
+            </label>
+
+            <button className="expense-entry__button" type="submit">
+              Add ${amount || '0'}
+            </button>
+          </form>
         </section>
       )}
 
@@ -109,17 +206,77 @@ function App() {
           <p className="spending__empty">No spending logged today.</p>
         ) : (
           <div className="transaction-list">
-            {transactions.map((transaction, index) => (
-              <p
+            {transactions.map((transaction) => (
+              <div
                 className="transaction-row"
                 data-category={transaction.category}
-                key={index}
+                key={transaction.id}
               >
-                <span>{transaction.category}</span>
-                <span className="transaction-row__amount">
-                  ${transaction.amount}
-                </span>
-              </p>
+                {editingId === transaction.id ? (
+                  <>
+                    <label className="transaction-row__edit-label">
+                      <span className="transaction-row__category">
+                        {transaction.category} amount
+                      </span>
+                      <span className="transaction-row__input-wrap">
+                        <span aria-hidden="true">$</span>
+                        <input
+                          className="transaction-row__input"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          inputMode="decimal"
+                          value={editingAmount}
+                          onChange={(event) =>
+                            setEditingAmount(event.target.value)
+                          }
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter')
+                              saveTransaction(transaction.id)
+                            if (event.key === 'Escape') cancelEditing()
+                          }}
+                          autoFocus
+                        />
+                      </span>
+                    </label>
+                    <div className="transaction-row__actions">
+                      <button
+                        type="button"
+                        onClick={() => saveTransaction(transaction.id)}
+                      >
+                        Save
+                      </button>
+                      <button type="button" onClick={cancelEditing}>
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="transaction-row__details">
+                      <span>{transaction.category}</span>
+                      <span className="transaction-row__amount">
+                        ${transaction.amount}
+                      </span>
+                    </div>
+                    <div className="transaction-row__actions">
+                      <button
+                        type="button"
+                        onClick={() => startEditing(transaction)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        className="transaction-row__delete"
+                        type="button"
+                        onClick={() => deleteTransaction(transaction.id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             ))}
           </div>
         )}
