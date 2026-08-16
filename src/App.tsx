@@ -1,24 +1,98 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 import CategoryButton from './components/CategoryButton'
 
+const categories = ['Food', 'Shopping', 'Fun', 'Life'] as const
+const transactionsStorageKey = 'budgeting-app.today-transactions'
+
+type Category = (typeof categories)[number]
+
+type Transaction = {
+  category: Category
+  amount: number
+}
+
+type StoredTransactions = {
+  version: 1
+  transactions: Transaction[]
+}
+
+function isTransaction(value: unknown): value is Transaction {
+  if (!value || typeof value !== 'object') return false
+
+  const transaction = value as Record<string, unknown>
+
+  return (
+    typeof transaction.category === 'string' &&
+    categories.some((category) => category === transaction.category) &&
+    typeof transaction.amount === 'number' &&
+    Number.isFinite(transaction.amount)
+  )
+}
+
+function loadTransactions(): Transaction[] {
+  try {
+    const savedTransactions = localStorage.getItem(transactionsStorageKey)
+
+    if (!savedTransactions) return []
+
+    const storedData: unknown = JSON.parse(savedTransactions)
+
+    if (!storedData || typeof storedData !== 'object') return []
+
+    const { version, transactions } = storedData as Partial<StoredTransactions>
+
+    if (
+      version !== 1 ||
+      !Array.isArray(transactions) ||
+      !transactions.every(isTransaction)
+    ) {
+      return []
+    }
+
+    return transactions
+  } catch {
+    return []
+  }
+}
+
+function saveTransactions(transactions: Transaction[]) {
+  try {
+    const storedData: StoredTransactions = {
+      version: 1,
+      transactions,
+    }
+
+    localStorage.setItem(transactionsStorageKey, JSON.stringify(storedData))
+  } catch {
+    // Keep the in-memory expense experience working when storage is unavailable.
+  }
+}
+
 function App() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
   const [amount, setAmount] = useState('')
-  const [transactions, setTransactions] = useState<
-    { category: string; amount: number }[]
-  >([])
+  const [transactions, setTransactions] =
+    useState<Transaction[]>(loadTransactions)
+
+  useEffect(() => {
+    saveTransactions(transactions)
+  }, [transactions])
 
   function addExpense() {
     if (!selectedCategory || !amount) return
 
-    setTransactions([
-      ...transactions,
-      {
-        category: selectedCategory,
-        amount: Number(amount),
-      },
-    ])
+    setTransactions((currentTransactions) => {
+      const updatedTransactions = [
+        ...currentTransactions,
+        {
+          category: selectedCategory,
+          amount: Number(amount),
+        },
+      ]
+
+      return updatedTransactions
+    })
 
     setAmount('')
     setSelectedCategory(null)
@@ -46,8 +120,6 @@ function App() {
   )
 
   const availableToday = previousDayBalance + dailyBaseline - totalSpent
-  const categories = ['Food', 'Shopping', 'Fun', 'Life']
-
   return (
     <main className="today">
       <header className="today__header">
