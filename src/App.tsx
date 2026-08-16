@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import CategoryButton from './components/CategoryButton'
 
@@ -53,6 +53,7 @@ function loadTransactions(): Transaction[] {
 }
 
 function App() {
+  const amountInputRef = useRef<HTMLInputElement>(null)
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [amount, setAmount] = useState('')
   const [transactions, setTransactions] =
@@ -63,6 +64,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem(transactionsStorageKey, JSON.stringify(transactions))
   }, [transactions])
+
+  useEffect(() => {
+    if (selectedCategory) amountInputRef.current?.focus()
+  }, [selectedCategory])
 
   function addExpense() {
     if (!selectedCategory || !amount) return
@@ -176,6 +181,7 @@ function App() {
             <label className="expense-entry__label">
               Amount
               <input
+                ref={amountInputRef}
                 className="expense-entry__input"
                 type="number"
                 inputMode="decimal"
