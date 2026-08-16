@@ -167,25 +167,28 @@ function App() {
             {selectedCategory}
           </h2>
 
-          <label className="expense-entry__label">
-            Amount
-            <input
-              className="expense-entry__input"
-              type="number"
-              inputMode="decimal"
-              placeholder="$0"
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-            />
-          </label>
-
-          <button
-            className="expense-entry__button"
-            type="button"
-            onClick={addExpense}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              addExpense()
+            }}
           >
-            Add ${amount || '0'}
-          </button>
+            <label className="expense-entry__label">
+              Amount
+              <input
+                className="expense-entry__input"
+                type="number"
+                inputMode="decimal"
+                placeholder="$0"
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+              />
+            </label>
+
+            <button className="expense-entry__button" type="submit">
+              Add ${amount || '0'}
+            </button>
+          </form>
         </section>
       )}
 
