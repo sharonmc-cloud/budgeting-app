@@ -43,7 +43,7 @@ function SpendingDonut({ summary }: { summary: MonthlySummary }) {
   </svg>
 }
 
-function MonthlyHistorySummary({ summary, current }: { summary: MonthlySummary; current: boolean }) {
+function MonthlyHistorySummary({ summary, current, onSelectCategory }: { summary: MonthlySummary; current: boolean; onSelectCategory: (category: string, trigger: HTMLButtonElement) => void }) {
   return <div className="monthly-summary">
     <dl className="monthly-summary__metrics">
       <div><dt>Budgeted</dt><dd>{money(summary.budgetedCents)}</dd></div>
@@ -52,7 +52,10 @@ function MonthlyHistorySummary({ summary, current }: { summary: MonthlySummary; 
     </dl>
     <div className="monthly-summary__breakdown">
       <SpendingDonut summary={summary} />
-      <ul aria-label="Category spending totals">{categories.map((category) => <li data-category={category} key={category}><span aria-hidden="true" /><strong>{category}</strong> {money(summary.categoryTotals[category])}</li>)}</ul>
+      <ul aria-label="Category spending totals">{categories.map((category) => {
+        const total = summary.categoryTotals[category]
+        return <li data-category={category} key={category}><button type="button" aria-disabled={!total} aria-label={`${category}, ${money(total)} spent. ${total ? `Show transactions for ${formatMonth(summary.monthKey)}` : 'No transactions'}`} onClick={(event) => { if (total) onSelectCategory(category, event.currentTarget) }}><span aria-hidden="true" /><strong>{category}</strong> {money(total)}</button></li>
+      })}</ul>
     </div>
   </div>
 }
@@ -109,7 +112,10 @@ function App() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
   const [showSetup, setShowSetup] = useState(false)
+  const [drawer, setDrawer] = useState<{ month: string; category: string } | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const drawerRef = useRef<HTMLDialogElement>(null)
+  const drawerTriggerRef = useRef<HTMLButtonElement | null>(null)
   const currentConfiguration = configurations[monthKey]?.at(-1)
   const previousConfiguration = Object.entries(configurations).filter(([key]) => key < monthKey).sort(([a], [b]) => b.localeCompare(a))[0]?.[1].at(-1)
   const trackingStart = Object.values(configurations).flat().map((item) => item.setupDate).sort()[0] ?? today
@@ -128,6 +134,10 @@ function App() {
   useEffect(() => localStorage.setItem(transactionsStorageKey, JSON.stringify(transactions)), [transactions])
   useEffect(() => localStorage.setItem(dayCompletionsStorageKey, JSON.stringify(completions)), [completions])
   useEffect(() => { if (selectedCategory) inputRef.current?.focus() }, [selectedCategory])
+  useEffect(() => {
+    const dialog = drawerRef.current
+    if (drawer && dialog && !dialog.open) dialog.showModal()
+  }, [drawer])
   useEffect(() => {
     const closeMenu = (event: KeyboardEvent | PointerEvent) => {
       if (event instanceof KeyboardEvent && event.key !== 'Escape') return
@@ -170,6 +180,22 @@ function App() {
   function deleteTransaction(id: string) { setTransactions((all) => all.filter((item) => item.id !== id)); setEditingId(null); setOpenMenuId(null); changed() }
   function navigate(next: View, date = today) { setView(next); setSelectedDate(date); setEditingId(null); setOpenMenuId(null); resetEntry(); setNotice('') }
 
+  function openDrawer(month: string, category: string, trigger: HTMLButtonElement) {
+    drawerTriggerRef.current = trigger
+    setDrawer({ month, category })
+    setEditingId(null)
+    setOpenMenuId(null)
+  }
+
+  function closeDrawer() { drawerRef.current?.close() }
+
+  function finishClosingDrawer() {
+    setDrawer(null)
+    setEditingId(null)
+    setOpenMenuId(null)
+    requestAnimationFrame(() => drawerTriggerRef.current?.focus())
+  }
+
   function beginEditing(transaction: DatedTransaction) {
     setEditingId(transaction.id)
     setEditingAmount(String(transaction.amountCents / 100))
@@ -182,14 +208,22 @@ function App() {
     saveConfiguration({ version: 1, amountCents, monthKey, setupDate: today, interpretation: 'remaining-month', rounding })
   }
 
+  function transactionRow(transaction: DatedTransaction, showDate = false, canEdit = editable) {
+    return <div className={`transaction-row${editingId === transaction.id ? ' transaction-row--editing' : ''}${openMenuId === transaction.id ? ' transaction-row--menu-open' : ''}`} data-category={transaction.category} key={transaction.id}>{editingId === transaction.id ? <form className="transaction-edit" onSubmit={(event) => { event.preventDefault(); saveTransaction(transaction.id) }} onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setEditingId(null) } }}><label>Amount<span className="transaction-row__input-wrap"><span aria-hidden="true">$</span><input className="transaction-row__input" inputMode="decimal" value={editingAmount} onChange={(event) => setEditingAmount(event.target.value)} autoFocus /></span></label><label>Category<select value={editingCategory} onChange={(event) => setEditingCategory(event.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label><label className="transaction-edit__note">Note<input type="text" value={editingNote} onChange={(event) => setEditingNote(event.target.value)} /></label><div className="transaction-row__actions"><button type="submit">Save</button><button type="button" onClick={() => setEditingId(null)}>Cancel</button></div></form> : <><div className="transaction-row__labels"><strong>{transaction.note || transaction.category}</strong>{transaction.note && <small>{transaction.category}</small>}{showDate && <time dateTime={transaction.date}>{formatDate(transaction.date)}</time>}</div><span className="transaction-row__amount">{money(transaction.amountCents)}</span>{canEdit && <div className="transaction-menu"><button className="transaction-menu__trigger" type="button" aria-label={`Transaction actions for ${transaction.note || transaction.category}`} aria-haspopup="menu" aria-expanded={openMenuId === transaction.id} onClick={() => setOpenMenuId((open) => open === transaction.id ? null : transaction.id)}>•••</button>{openMenuId === transaction.id && <div className="transaction-menu__popover" role="menu"><button role="menuitem" onClick={() => beginEditing(transaction)}>Edit</button><button className="transaction-row__delete" role="menuitem" onClick={() => deleteTransaction(transaction.id)}>Delete</button></div>}</div>}</>}</div>
+  }
+
   if (view === 'settings') return <main className="today"><PrimaryNav view={view} navigate={navigate} /><Settings configuration={currentConfiguration!} today={today} onSave={saveSettings} /></main>
 
-  if (view === 'history') return <main className="today history"><PrimaryNav view={view} navigate={navigate} /><header className="history__header"><p className="setup__eyebrow">Your days</p><h1>History</h1><p>Every budgeting day, newest first.</p></header>{historyMonths.map((month) => <section className="history-month" aria-labelledby={`month-${month.key}`} key={month.key}><h2 id={`month-${month.key}`}>{formatMonth(month.key)}</h2><MonthlyHistorySummary summary={month.summary} current={month.key === monthKey} /><div className="history-month__days">{month.days.map((day) => <button className="history-row" key={day.date} onClick={() => navigate('detail', day.date)}><span><strong>{formatDate(day.date)}</strong><small>{day.spentCents ? `${money(day.spentCents)} spent` : 'No spending'}</small></span><span className="history-row__balance">{money(day.endingBalanceCents)} <span aria-hidden="true">→</span></span></button>)}</div></section>)}</main>
+  if (view === 'history') {
+    const drawerTransactions = drawer ? transactions.filter((transaction) => transaction.category === drawer.category && transaction.date.slice(0, 7) === drawer.month && balanceMap.has(transaction.date)).sort((a, b) => b.date.localeCompare(a.date)) : []
+    const drawerTotal = drawerTransactions.reduce((sum, transaction) => sum + transaction.amountCents, 0)
+    return <><main className="today history"><PrimaryNav view={view} navigate={navigate} /><header className="history__header"><p className="setup__eyebrow">Your days</p><h1>History</h1><p>Every budgeting day, newest first.</p></header>{historyMonths.map((month) => <section className="history-month" aria-labelledby={`month-${month.key}`} key={month.key}><h2 id={`month-${month.key}`}>{formatMonth(month.key)}</h2><MonthlyHistorySummary summary={month.summary} current={month.key === monthKey} onSelectCategory={(category, trigger) => openDrawer(month.key, category, trigger)} /><div className="history-month__days">{month.days.map((day) => <button className="history-row" key={day.date} onClick={() => navigate('detail', day.date)}><span><strong>{formatDate(day.date)}</strong><small>{day.spentCents ? `${money(day.spentCents)} spent` : 'No spending'}</small></span><span className="history-row__balance">{money(day.endingBalanceCents)} <span aria-hidden="true">→</span></span></button>)}</div></section>)}</main><dialog ref={drawerRef} className="category-drawer" aria-labelledby="drawer-title" aria-describedby="drawer-summary" onClose={finishClosingDrawer} onClick={(event) => { if (event.target === event.currentTarget) closeDrawer() }}>{drawer && <div className="category-drawer__panel"><header className="category-drawer__header"><div><p className="setup__eyebrow">{formatMonth(drawer.month)}</p><h2 id="drawer-title">{drawer.category}</h2><p id="drawer-summary"><strong>{money(drawerTotal)}</strong> spent in {formatMonth(drawer.month)}</p></div><button className="category-drawer__close" type="button" aria-label="Close category transactions" onClick={closeDrawer}>×</button></header><div className="category-drawer__content"><div className="transaction-list">{drawerTransactions.map((transaction) => transactionRow(transaction, true, drawer.month === monthKey))}</div></div></div>}</dialog></>
+  }
 
   return <main className="today"><PrimaryNav view={isToday ? 'today' : 'history'} navigate={navigate} />{!isToday && <button className="back-button" onClick={() => navigate('history')}>← Back to History</button>}<header className="today__header"><p className="today__date">{formatDate(activeDate)}</p><div className="balance"><h1 className="balance__amount">{money(activeBalance.endingBalanceCents)}</h1><p className="balance__label">{isToday ? 'available today' : 'ending balance'}</p><p className="balance__rollover">Includes {money(activeBalance.priorBalanceCents)} from the prior day</p></div></header>
   {editable ? <><div className="categories" aria-label="Expense categories">{categories.map((category) => <CategoryButton key={category} label={category} selected={selectedCategory === category} onClick={() => setSelectedCategory(category)} />)}</div>{selectedCategory && <section className="expense-entry" aria-labelledby="expense-title"><h2 className="expense-entry__title" id="expense-title">{selectedCategory}</h2><form onSubmit={(event) => { event.preventDefault(); addExpense() }}><label className="expense-entry__label">Amount<input ref={inputRef} className="expense-entry__input" inputMode="decimal" placeholder="$0" value={amount} onChange={(event) => setAmount(event.target.value)} /></label><label className="expense-entry__label expense-entry__label--note">Note<input className="expense-entry__note" type="text" value={note} onChange={(event) => setNote(event.target.value)} /></label><button className="expense-entry__button" type="submit">Add {amount ? `$${amount}` : '$0'}</button></form></section>}</> : <p className="read-only" role="note">Previous months are view only.</p>}
   {notice && <p className="recalculation-notice" role="status">{notice}</p>}
-  <section className="spending" aria-labelledby="spending-title"><h2 className="spending__title" id="spending-title">{isToday ? "Today's spending" : 'Spending'}</h2>{dayTransactions.length === 0 ? <p className="spending__empty">No spending logged for this day.</p> : <div className="transaction-list">{dayTransactions.map((transaction) => <div className={`transaction-row${editingId === transaction.id ? ' transaction-row--editing' : ''}${openMenuId === transaction.id ? ' transaction-row--menu-open' : ''}`} data-category={transaction.category} key={transaction.id}>{editingId === transaction.id ? <form className="transaction-edit" onSubmit={(event) => { event.preventDefault(); saveTransaction(transaction.id) }} onKeyDown={(event) => { if (event.key === 'Escape') setEditingId(null) }}><label>Amount<span className="transaction-row__input-wrap"><span aria-hidden="true">$</span><input className="transaction-row__input" inputMode="decimal" value={editingAmount} onChange={(event) => setEditingAmount(event.target.value)} autoFocus /></span></label><label>Category<select value={editingCategory} onChange={(event) => setEditingCategory(event.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label><label className="transaction-edit__note">Note<input type="text" value={editingNote} onChange={(event) => setEditingNote(event.target.value)} /></label><div className="transaction-row__actions"><button type="submit">Save</button><button type="button" onClick={() => setEditingId(null)}>Cancel</button></div></form> : <><div className="transaction-row__labels"><strong>{transaction.note || transaction.category}</strong>{transaction.note && <small>{transaction.category}</small>}</div><span className="transaction-row__amount">{money(transaction.amountCents)}</span>{editable && <div className="transaction-menu"><button className="transaction-menu__trigger" type="button" aria-label={`Transaction actions for ${transaction.note || transaction.category}`} aria-haspopup="menu" aria-expanded={openMenuId === transaction.id} onClick={() => setOpenMenuId((open) => open === transaction.id ? null : transaction.id)}>•••</button>{openMenuId === transaction.id && <div className="transaction-menu__popover" role="menu"><button role="menuitem" onClick={() => beginEditing(transaction)}>Edit</button><button className="transaction-row__delete" role="menuitem" onClick={() => deleteTransaction(transaction.id)}>Delete</button></div>}</div>}</>}</div>)}</div>}</section>
+  <section className="spending" aria-labelledby="spending-title"><h2 className="spending__title" id="spending-title">{isToday ? "Today's spending" : 'Spending'}</h2>{dayTransactions.length === 0 ? <p className="spending__empty">No spending logged for this day.</p> : <div className="transaction-list">{dayTransactions.map((transaction) => transactionRow(transaction))}</div>}</section>
   {isToday && <section className={`day-finish${completions[today] ? ' day-finish--complete' : ''}`}>{completions[today] ? <div className="day-complete" role="status"><div className="celebration" aria-hidden="true">{Array.from({ length: 12 }, (_, i) => <span key={i} />)}</div><p className="day-complete__eyebrow">Checked in</p><h2 className="day-complete__title">Day complete.</h2><p className="day-complete__rollover"><strong>{money(activeBalance.endingBalanceCents)}</strong> rolls into tomorrow.</p></div> : <button className="day-finish__button" onClick={() => setCompletions((all) => ({ ...all, [today]: true }))}><span>Finish my day</span><span className="day-finish__button-mark" aria-hidden="true">✓</span></button>}</section>}</main>
 }
 

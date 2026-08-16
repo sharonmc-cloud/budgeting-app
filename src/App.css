@@ -653,11 +653,15 @@ select:focus-visible {
 .monthly-donut__segment[data-category='Life'] { stroke: var(--color-mint); }
 .monthly-summary__breakdown ul { display: flex; flex: 1; flex-wrap: wrap; gap: .45rem .8rem; margin: 0; padding: 0; list-style: none; font-size: .9rem; }
 .monthly-summary__breakdown li { white-space: nowrap; }
-.monthly-summary__breakdown li > span { display: inline-block; width: .7rem; height: .7rem; margin-right: .2rem; border: 1.5px solid var(--color-ink); border-radius: 50%; vertical-align: -.05rem; }
-.monthly-summary__breakdown li[data-category='Food'] > span { background: var(--color-coral); }
-.monthly-summary__breakdown li[data-category='Shopping'] > span { background: var(--color-yellow); }
-.monthly-summary__breakdown li[data-category='Fun'] > span { background: var(--color-lavender); }
-.monthly-summary__breakdown li[data-category='Life'] > span { background: var(--color-mint); }
+.monthly-summary__breakdown li button { min-height: 2.25rem; padding: .3rem .45rem; border: 2px solid transparent; border-radius: var(--radius-sm); color: var(--color-ink); background: transparent; font: inherit; cursor: pointer; transition: background 120ms ease, border-color 120ms ease, transform 120ms ease; }
+.monthly-summary__breakdown li button:not([aria-disabled='true']):hover { border-color: var(--color-ink); background: rgb(255 253 247 / 70%); transform: translateY(-1px); }
+.monthly-summary__breakdown li button:not([aria-disabled='true']):active { transform: translateY(1px); }
+.monthly-summary__breakdown li button[aria-disabled='true'] { color: var(--color-muted); cursor: not-allowed; }
+.monthly-summary__breakdown li button > span { display: inline-block; width: .7rem; height: .7rem; margin-right: .2rem; border: 1.5px solid var(--color-ink); border-radius: 50%; vertical-align: -.05rem; }
+.monthly-summary__breakdown li[data-category='Food'] button > span { background: var(--color-coral); }
+.monthly-summary__breakdown li[data-category='Shopping'] button > span { background: var(--color-yellow); }
+.monthly-summary__breakdown li[data-category='Fun'] button > span { background: var(--color-lavender); }
+.monthly-summary__breakdown li[data-category='Life'] button > span { background: var(--color-mint); }
 .history-month__days:empty::after { content: 'No earlier days yet this month.'; display: block; color: var(--color-muted); font-weight: 600; text-align: center; }
 .history-row { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-3); padding: var(--space-4); border: var(--border-bold); border-radius: var(--radius-md); color: var(--color-ink); background: var(--color-surface); box-shadow: 4px 4px 0 var(--color-ink); text-align: left; cursor: pointer; }
 .history-row span:first-child { display: grid; gap: .2rem; }
@@ -671,6 +675,29 @@ select:focus-visible {
 .month-modal h1 { margin: var(--space-4) 0; font: 700 clamp(3rem, 13vw, 5rem)/.85 var(--font-display); letter-spacing: -.04em; }
 .month-modal__actions { display: grid; gap: var(--space-4); margin-top: var(--space-6); }
 .month-modal .secondary-button { border-radius: var(--radius-md); }
+
+.category-drawer { width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: hidden; }
+.category-drawer::backdrop { background: rgb(20 17 14 / 48%); }
+.category-drawer__panel { position: absolute; right: 0; bottom: 0; left: 0; display: flex; max-height: min(88dvh, 52rem); flex-direction: column; border: var(--border-bold); border-bottom: 0; border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--color-background); box-shadow: 0 -7px 0 rgb(20 17 14 / 25%); animation: drawer-up 220ms ease-out both; }
+.category-drawer__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); padding: var(--space-5) var(--space-4) var(--space-4); border-bottom: var(--border-bold); background: color-mix(in srgb, var(--color-lavender) 20%, var(--color-surface)); }
+.category-drawer__header .setup__eyebrow { margin: 0 0 var(--space-3); font-size: .72rem; }
+.category-drawer__header h2 { margin: 0; font: 700 clamp(3.25rem, 15vw, 5rem)/.75 var(--font-display); letter-spacing: -.04em; }
+.category-drawer__header p:last-child { margin-top: var(--space-4); font-size: 1.05rem; }
+.category-drawer__header p strong { font: 700 1.35rem var(--font-display); }
+.category-drawer__close { display: grid; width: 3rem; height: 3rem; flex: 0 0 auto; place-items: center; padding: 0 0 .2rem; border: var(--border-bold); border-radius: 50%; color: var(--color-ink); background: var(--color-yellow); box-shadow: 3px 3px 0 var(--color-ink); font: 700 2rem/1 var(--font-display); cursor: pointer; }
+.category-drawer__close:active { box-shadow: 1px 1px 0 var(--color-ink); transform: translate(2px, 2px); }
+.category-drawer__content { min-height: 0; padding: var(--space-4) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom)); overflow-y: auto; overscroll-behavior: contain; }
+.category-drawer .transaction-row__labels time { color: var(--color-muted); font-size: .82rem; font-weight: 600; }
+
+@keyframes drawer-up { from { transform: translateY(100%); } }
+
+@media (min-width: 42rem) {
+  .category-drawer__panel { top: 0; right: 0; bottom: 0; left: auto; width: min(30rem, 82vw); max-height: none; border: 0; border-left: var(--border-bold); border-radius: 0; box-shadow: -7px 0 0 rgb(20 17 14 / 25%); animation-name: drawer-in; }
+  .category-drawer__header { padding: var(--space-6) var(--space-5) var(--space-5); }
+  .category-drawer__content { padding: var(--space-5); }
+}
+
+@keyframes drawer-in { from { transform: translateX(100%); } }
 
 .settings__header { margin: var(--space-7) 0 var(--space-6); }
 .settings__header h1 { margin: var(--space-3) 0 0; font: 700 clamp(4rem, 18vw, 7rem)/.8 var(--font-display); letter-spacing: -.05em; }
