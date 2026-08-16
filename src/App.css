@@ -1,7 +1,7 @@
 .today {
   width: min(100%, 44rem);
   margin-inline: auto;
-  padding: var(--space-6) var(--space-4) var(--space-8);
+  padding: var(--space-6) var(--space-4) calc(8.5rem + env(safe-area-inset-bottom));
 }
 
 .today__header {
@@ -322,6 +322,152 @@
   font-weight: 700;
 }
 
+.day-finish {
+  position: fixed;
+  z-index: 10;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: var(--space-3) var(--space-4)
+    calc(var(--space-3) + env(safe-area-inset-bottom));
+  background: linear-gradient(
+    to top,
+    var(--color-background) 75%,
+    rgb(255 248 232 / 0%)
+  );
+}
+
+.day-finish__button,
+.day-complete {
+  width: min(100%, 42rem);
+  margin-inline: auto;
+  border: var(--border-bold);
+  border-radius: var(--radius-md);
+  color: var(--color-ink);
+  background: #70d6ff;
+  box-shadow: 6px 6px 0 var(--color-ink);
+}
+
+.day-finish__button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 4.75rem;
+  padding: 0.75rem 1rem 0.75rem 1.4rem;
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, filter 120ms ease, transform 120ms ease;
+}
+
+.day-finish__button:hover {
+  filter: saturate(1.15) brightness(1.03);
+  box-shadow: 8px 8px 0 var(--color-ink);
+  transform: translate(-2px, -2px);
+}
+
+.day-finish__button:active {
+  box-shadow: 1px 1px 0 var(--color-ink);
+  transform: translate(5px, 5px);
+}
+
+.day-finish__button-mark {
+  display: grid;
+  width: 2.8rem;
+  height: 2.8rem;
+  place-items: center;
+  border: 2px solid var(--color-ink);
+  border-radius: 50%;
+  background: var(--color-surface);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.day-complete {
+  position: relative;
+  overflow: hidden;
+  padding: 0.85rem 1.25rem 1rem;
+  text-align: center;
+  animation: completion-pop 420ms cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+
+.day-complete__eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.day-complete__title {
+  margin: 0.2rem 0 0;
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.day-complete__rollover {
+  margin-top: 0.3rem;
+  font-size: 1rem;
+}
+
+.day-complete__rollover strong {
+  font-family: var(--font-display);
+  font-size: 1.2em;
+}
+
+.celebration span {
+  --burst-angle: calc(var(--burst-index) * 30deg);
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0.45rem;
+  height: 0.75rem;
+  border: 2px solid var(--color-ink);
+  background: var(--color-yellow);
+  opacity: 0;
+  animation: confetti-burst 650ms ease-out both;
+  animation-delay: calc(var(--burst-index) * 16ms);
+}
+
+.celebration span:nth-child(3n + 2) {
+  border-radius: 50%;
+  background: var(--color-lavender);
+}
+
+.celebration span:nth-child(3n) {
+  background: var(--color-coral);
+}
+
+.celebration span:nth-child(1) { --burst-index: 0; }
+.celebration span:nth-child(2) { --burst-index: 1; }
+.celebration span:nth-child(3) { --burst-index: 2; }
+.celebration span:nth-child(4) { --burst-index: 3; }
+.celebration span:nth-child(5) { --burst-index: 4; }
+.celebration span:nth-child(6) { --burst-index: 5; }
+.celebration span:nth-child(7) { --burst-index: 6; }
+.celebration span:nth-child(8) { --burst-index: 7; }
+.celebration span:nth-child(9) { --burst-index: 8; }
+.celebration span:nth-child(10) { --burst-index: 9; }
+.celebration span:nth-child(11) { --burst-index: 10; }
+.celebration span:nth-child(12) { --burst-index: 11; }
+
+@keyframes completion-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92) rotate(-1deg);
+  }
+}
+
+@keyframes confetti-burst {
+  15% { opacity: 1; }
+  to {
+    opacity: 0;
+    transform: rotate(var(--burst-angle)) translateY(-7rem) rotate(180deg);
+  }
+}
+
 button:focus-visible,
 input:focus-visible {
   outline: 4px solid var(--color-focus);
@@ -345,6 +491,7 @@ input:focus-visible {
 @media (min-width: 42rem) {
   .today {
     padding-top: var(--space-8);
+    padding-bottom: var(--space-8);
   }
 
   .categories {
@@ -358,6 +505,22 @@ input:focus-visible {
 
   .expense-entry {
     padding: var(--space-6);
+  }
+
+  .day-finish {
+    position: static;
+    margin-top: var(--space-8);
+    padding: 0;
+    background: none;
+  }
+
+  .day-finish__button {
+    min-height: 5.5rem;
+    font-size: 2rem;
+  }
+
+  .day-complete {
+    padding: var(--space-5);
   }
 }
 
