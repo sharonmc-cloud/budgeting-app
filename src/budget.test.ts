@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import {
+  createNewMonthBudget,
   getDailyAllocationCents,
   getMonthDetails,
   getPeriodDays,
@@ -90,4 +91,25 @@ test('legacy single-month configurations migrate once and same-day updates repla
   saveBudget({ ...original, amountCents: 12000 })
   assert.equal(loadBudgetConfigurations()['2026-08'].length, 1)
   assert.equal(loadBudgetForMonth('2026-08')?.amountCents, 12000)
+})
+
+test('new month keeps the proposed amount and rounding without carrying prior state', () => {
+  const previous: BudgetConfiguration = { version: 1, amountCents: 12345, monthKey: '2026-08', setupDate: '2026-08-10', interpretation: 'remaining-month', rounding: 'down' }
+  assert.deepEqual(createNewMonthBudget(previous, '2026-09', '2026-09-01'), {
+    version: 1,
+    amountCents: 12345,
+    monthKey: '2026-09',
+    setupDate: '2026-09-01',
+    interpretation: 'full-month',
+    rounding: 'down',
+  })
+  assert.equal(previous.monthKey, '2026-08')
+})
+
+test('new month edits only the new amount and rounding', () => {
+  const previous: BudgetConfiguration = { version: 1, amountCents: 12345, monthKey: '2026-08', setupDate: '2026-08-10', interpretation: 'remaining-month', rounding: 'down' }
+  const next = createNewMonthBudget(previous, '2026-09', '2026-09-01', 20000, 'up')
+  assert.equal(next.amountCents, 20000)
+  assert.equal(next.rounding, 'up')
+  assert.equal(previous.amountCents, 12345)
 })

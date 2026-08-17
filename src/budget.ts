@@ -181,3 +181,14 @@ export function saveBudget(configuration: BudgetConfiguration) {
     .sort((a, b) => a.setupDate.localeCompare(b.setupDate))
   localStorage.setItem(budgetStorageKey, JSON.stringify(configurations))
 }
+
+/** Creates the confirmed hard-reset configuration for a new calendar month. */
+export function createNewMonthBudget(
+  previous: BudgetConfiguration,
+  monthKey: string,
+  setupDate: string,
+  amountCents = previous.amountCents,
+  rounding = previous.rounding,
+): BudgetConfiguration {
+  return { version: 1, amountCents, monthKey, setupDate, interpretation: 'full-month', rounding }
+}

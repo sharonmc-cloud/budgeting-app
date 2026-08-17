@@ -4,6 +4,7 @@ import CategoryButton from './components/CategoryButton'
 import BudgetSetup from './components/BudgetSetup'
 import Settings from './components/Settings'
 import {
+  createNewMonthBudget,
   getLocalDateKey,
   getMonthDetails,
   getMonthKey,
@@ -91,7 +92,7 @@ function loadCompletions(): DayCompletions {
 }
 
 function NewMonthPrompt({ previous, monthName, onKeep, onEdit }: { previous: BudgetConfiguration; monthName: string; onKeep: () => void; onEdit: () => void }) {
-  return <div className="modal-backdrop"><section className="month-modal" role="dialog" aria-modal="true" aria-labelledby="month-title"><p className="setup__eyebrow">A fresh month</p><h1 id="month-title">Set up {monthName}</h1><p>Last month, your spending amount was <strong>{money(previous.amountCents)}</strong>.</p><div className="month-modal__actions"><button className="setup__submit" onClick={onKeep}>Keep {money(previous.amountCents)} <span aria-hidden="true">→</span></button><button className="secondary-button" onClick={onEdit}>Edit amount</button></div></section></div>
+  return <div className="modal-backdrop"><section className="month-modal" role="dialog" aria-modal="true" aria-labelledby="month-title" aria-describedby="month-description"><p className="setup__eyebrow">New month</p><h1 id="month-title">{monthName}</h1><p id="month-description">Your spending amount is <strong>{money(previous.amountCents)}</strong>.</p><div className="month-modal__actions"><button className="setup__submit" autoFocus onClick={onKeep}>Keep this amount <span aria-hidden="true">→</span></button><button className="secondary-button" onClick={onEdit}>Edit amount</button></div></section></div>
 }
 
 function App() {
@@ -150,10 +151,11 @@ function App() {
   }, [])
 
   const saveConfiguration = (configuration: BudgetConfiguration) => { saveBudget(configuration); setConfigurations(loadBudgetConfigurations()); setShowSetup(false) }
-  if (!currentConfiguration && (!previousConfiguration || showSetup)) return <BudgetSetup onComplete={saveConfiguration} />
+  if (!currentConfiguration && !previousConfiguration) return <BudgetSetup onComplete={saveConfiguration} />
+  if (!currentConfiguration && showSetup && previousConfiguration) return <BudgetSetup initialAmountCents={previousConfiguration.amountCents} initialRounding={previousConfiguration.rounding} newMonth onCancel={() => setShowSetup(false)} onComplete={(configuration) => saveConfiguration(createNewMonthBudget(previousConfiguration, monthKey, today, configuration.amountCents, configuration.rounding))} />
   if (!currentConfiguration && previousConfiguration) {
     const details = getMonthDetails()
-    return <NewMonthPrompt previous={previousConfiguration} monthName={details.monthName} onEdit={() => setShowSetup(true)} onKeep={() => saveConfiguration({ ...previousConfiguration, monthKey, setupDate: today, interpretation: 'full-month' })} />
+    return <NewMonthPrompt previous={previousConfiguration} monthName={details.monthName} onEdit={() => setShowSetup(true)} onKeep={() => saveConfiguration(createNewMonthBudget(previousConfiguration, monthKey, today))} />
   }
 
   const activeDate = view === 'today' ? today : selectedDate
@@ -215,9 +217,10 @@ function App() {
   if (view === 'settings') return <main className="today"><PrimaryNav view={view} navigate={navigate} /><Settings configuration={currentConfiguration!} today={today} onSave={saveSettings} /></main>
 
   if (view === 'history') {
+    const hasPastDays = balances.some((day) => day.date < today)
     const drawerTransactions = drawer ? transactions.filter((transaction) => transaction.category === drawer.category && transaction.date.slice(0, 7) === drawer.month && balanceMap.has(transaction.date)).sort((a, b) => b.date.localeCompare(a.date)) : []
     const drawerTotal = drawerTransactions.reduce((sum, transaction) => sum + transaction.amountCents, 0)
-    return <><main className="today history"><PrimaryNav view={view} navigate={navigate} /><header className="history__header"><p className="setup__eyebrow">Your days</p><h1>History</h1><p>Every budgeting day, newest first.</p></header>{historyMonths.map((month) => <section className="history-month" aria-labelledby={`month-${month.key}`} key={month.key}><h2 id={`month-${month.key}`}>{formatMonth(month.key)}</h2><MonthlyHistorySummary summary={month.summary} current={month.key === monthKey} onSelectCategory={(category, trigger) => openDrawer(month.key, category, trigger)} /><div className="history-month__days">{month.days.map((day) => <button className="history-row" key={day.date} onClick={() => navigate('detail', day.date)}><span><strong>{formatDate(day.date)}</strong><small>{day.spentCents ? `${money(day.spentCents)} spent` : 'No spending'}</small></span><span className="history-row__balance">{money(day.endingBalanceCents)} <span aria-hidden="true">→</span></span></button>)}</div></section>)}</main><dialog ref={drawerRef} className="category-drawer" aria-labelledby="drawer-title" aria-describedby="drawer-summary" onClose={finishClosingDrawer} onClick={(event) => { if (event.target === event.currentTarget) closeDrawer() }}>{drawer && <div className="category-drawer__panel"><header className="category-drawer__header"><div><p className="setup__eyebrow">{formatMonth(drawer.month)}</p><h2 id="drawer-title">{drawer.category}</h2><p id="drawer-summary"><strong>{money(drawerTotal)}</strong> spent in {formatMonth(drawer.month)}</p></div><button className="category-drawer__close" type="button" aria-label="Close category transactions" onClick={closeDrawer}>×</button></header><div className="category-drawer__content"><div className="transaction-list">{drawerTransactions.map((transaction) => transactionRow(transaction, true, drawer.month === monthKey))}</div></div></div>}</dialog></>
+    return <><main className="today history"><PrimaryNav view={view} navigate={navigate} /><header className="history__header"><p className="setup__eyebrow">Your days</p><h1>History</h1><p>Every budgeting day, newest first.</p></header>{!hasPastDays && <p className="history__empty">Your past days will appear here as you use the app.</p>}{historyMonths.map((month) => <section className="history-month" aria-labelledby={`month-${month.key}`} key={month.key}><h2 id={`month-${month.key}`}>{formatMonth(month.key)}</h2><MonthlyHistorySummary summary={month.summary} current={month.key === monthKey} onSelectCategory={(category, trigger) => openDrawer(month.key, category, trigger)} />{hasPastDays && <div className="history-month__days">{month.days.map((day) => <button className="history-row" key={day.date} onClick={() => navigate('detail', day.date)}><span><strong>{formatDate(day.date)}</strong><small>{day.spentCents ? `${money(day.spentCents)} spent` : 'No spending'}</small></span><span className="history-row__balance">{money(day.endingBalanceCents)} <span aria-hidden="true">→</span></span></button>)}</div>}</section>)}</main><dialog ref={drawerRef} className="category-drawer" aria-labelledby="drawer-title" aria-describedby="drawer-summary" onClose={finishClosingDrawer} onClick={(event) => { if (event.target === event.currentTarget) closeDrawer() }}>{drawer && <div className="category-drawer__panel"><header className="category-drawer__header"><div><p className="setup__eyebrow">{formatMonth(drawer.month)}</p><h2 id="drawer-title">{drawer.category}</h2><p id="drawer-summary"><strong>{money(drawerTotal)}</strong> spent in {formatMonth(drawer.month)}</p></div><button className="category-drawer__close" type="button" aria-label="Close category transactions" onClick={closeDrawer}>×</button></header><div className="category-drawer__content"><div className="transaction-list">{drawerTransactions.map((transaction) => transactionRow(transaction, true, drawer.month === monthKey))}</div></div></div>}</dialog></>
   }
 
   return <main className="today"><PrimaryNav view={isToday ? 'today' : 'history'} navigate={navigate} />{!isToday && <button className="back-button" onClick={() => navigate('history')}>← Back to History</button>}<header className="today__header"><p className="today__date">{formatDate(activeDate)}</p><div className="balance"><h1 className="balance__amount">{money(activeBalance.endingBalanceCents)}</h1><p className="balance__label">{isToday ? 'available today' : 'ending balance'}</p><p className="balance__rollover">Includes {money(activeBalance.priorBalanceCents)} from the prior day</p></div></header>
