@@ -10,7 +10,7 @@ import {
   type RoundingPreference,
 } from '../budget'
 
-type Props = { onComplete: (configuration: BudgetConfiguration) => void }
+type Props = { onComplete: (configuration: BudgetConfiguration) => void; initialAmountCents?: number; initialRounding?: RoundingPreference; newMonth?: boolean; onCancel?: () => void }
 
 const currency = new Intl.NumberFormat(undefined, {
   style: 'currency',
@@ -19,13 +19,13 @@ const currency = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 })
 
-function BudgetSetup({ onComplete }: Props) {
+function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'exact', newMonth = false, onCancel }: Props) {
   const today = useMemo(() => new Date(), [])
   const month = getMonthDetails(today)
-  const [amount, setAmount] = useState('')
+  const [amount, setAmount] = useState(initialAmountCents ? String(initialAmountCents / 100) : '')
   const [interpretation, setInterpretation] =
-    useState<BudgetInterpretation>('remaining-month')
-  const [rounding, setRounding] = useState<RoundingPreference>('exact')
+    useState<BudgetInterpretation>(newMonth ? 'full-month' : 'remaining-month')
+  const [rounding, setRounding] = useState<RoundingPreference>(initialRounding)
   const [showError, setShowError] = useState(false)
   const amountCents = parseMoneyToCents(amount)
   const days = getPeriodDays(interpretation, today)
@@ -59,15 +59,15 @@ function BudgetSetup({ onComplete }: Props) {
   return (
     <main className="setup">
       <header className="setup__header">
-        <p className="setup__eyebrow">Your spending game plan</p>
-        <h1>Let&apos;s find your daily number.</h1>
-        <p>Two quick choices, then you&apos;re ready to roll.</p>
+        <p className="setup__eyebrow">{newMonth ? `New month · ${month.monthName}` : 'Your spending game plan'}</p>
+        <h1>{newMonth ? `Set ${month.monthName}'s amount.` : 'Let\'s find your daily number.'}</h1>
+        <p>{newMonth ? 'Confirm your spending amount and rounding preference.' : 'Two quick choices, then you\'re ready to roll.'}</p>
       </header>
 
       <form onSubmit={submit} noValidate>
         <section className="setup-card setup-card--amount" aria-labelledby="amount-title">
-          <span className="setup-card__number" aria-hidden="true">1</span>
-          <h2 id="amount-title">How much can you spend this month?</h2>
+          {!newMonth && <span className="setup-card__number" aria-hidden="true">1</span>}
+          <h2 id="amount-title">{newMonth ? `Spending amount for ${month.monthName}` : 'How much can you spend this month?'}</h2>
           <label className="money-input">
             <span aria-hidden="true">$</span>
             <input
@@ -98,7 +98,7 @@ function BudgetSetup({ onComplete }: Props) {
           )}
         </section>
 
-        <fieldset className="setup-card">
+        {!newMonth && <fieldset className="setup-card">
           <legend><span className="setup-card__number" aria-hidden="true">2</span>What does that amount represent?</legend>
           <div className="radio-stack">
             <label className="radio-card">
@@ -110,10 +110,10 @@ function BudgetSetup({ onComplete }: Props) {
               <span><strong>Full month</strong><small>This is my budget for all of {month.monthName}.</small><em>{month.totalDays} calendar days</em></span>
             </label>
           </div>
-        </fieldset>
+        </fieldset>}
 
         <fieldset className="setup-card">
-          <legend><span className="setup-card__number" aria-hidden="true">3</span>How should I show your daily amount?</legend>
+          <legend>{!newMonth && <span className="setup-card__number" aria-hidden="true">3</span>}How should I show your daily amount?</legend>
           <div className="rounding-grid">
             {choices.map((choice) => {
               const preview = amountCents === null ? null : getDailyAllocationCents(amountCents, days, choice.value)
@@ -128,7 +128,7 @@ function BudgetSetup({ onComplete }: Props) {
           <p className="setup-card__note">Your total stays the same. Any rounding difference is saved for the final day.</p>
         </fieldset>
 
-        <button className="setup__submit" type="submit">Set my budget <span aria-hidden="true">→</span></button>
+        <div className={newMonth ? 'setup__actions' : undefined}><button className="setup__submit" type="submit">{newMonth ? `Use for ${month.monthName}` : 'Set my budget'} <span aria-hidden="true">→</span></button>{newMonth && onCancel && <button className="secondary-button" type="button" onClick={onCancel}>Back</button>}</div>
       </form>
     </main>
   )
