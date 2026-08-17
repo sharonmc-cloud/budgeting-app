@@ -239,7 +239,7 @@ function App() {
   function closeDrawer() {
     if (drawerClosing) return
     setDrawerClosing(true)
-    const closeDelay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 220
+    const closeDelay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 420
     window.setTimeout(() => drawerRef.current?.close(), closeDelay)
   }
 
