@@ -30,15 +30,21 @@ const money = (cents: number) => currency.format(cents / 100)
 const formatDate = (key: string, weekday = true) => new Intl.DateTimeFormat(undefined, { ...(weekday ? { weekday: 'long' as const } : {}), month: 'long', day: 'numeric', year: key.slice(0, 4) === getLocalDateKey().slice(0, 4) ? undefined : 'numeric' }).format(new Date(`${key}T12:00:00`))
 const formatMonth = (key: string) => new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date(`${key}-01T12:00:00`))
 
-const confettiPieces = Array.from({ length: 36 }, (_, index) => ({
-  left: `${4 + ((index * 37) % 92)}%`,
-  drift: `${-70 + ((index * 53) % 140)}px`,
-  delay: `${(index % 9) * 18}ms`,
-  rotation: `${120 + ((index * 47) % 260)}deg`,
-}))
+const confettiPieces = Array.from({ length: 48 }, (_, index) => {
+  const launchesFromLeft = index % 2 === 0
+  const spread = 55 + ((index * 43) % 250)
+  return {
+    origin: launchesFromLeft ? 'left' : 'right',
+    burstX: `${launchesFromLeft ? spread : -spread}px`,
+    burstY: `${45 + ((index * 17) % 36)}vh`,
+    drift: `${launchesFromLeft ? 20 + ((index * 29) % 90) : -20 - ((index * 29) % 90)}px`,
+    delay: `${(index % 12) * 12}ms`,
+    rotation: `${240 + ((index * 47) % 420)}deg`,
+  }
+})
 
 function ConfettiBurst() {
-  return <div className="confetti" aria-hidden="true">{confettiPieces.map((piece, index) => <span key={index} style={{ '--confetti-left': piece.left, '--confetti-drift': piece.drift, '--confetti-delay': piece.delay, '--confetti-rotation': piece.rotation } as CSSProperties} />)}</div>
+  return <div className="confetti" aria-hidden="true">{confettiPieces.map((piece, index) => <span className={`confetti__piece confetti__piece--${piece.origin}`} key={index} style={{ '--confetti-burst-x': piece.burstX, '--confetti-burst-y': piece.burstY, '--confetti-drift': piece.drift, '--confetti-delay': piece.delay, '--confetti-rotation': piece.rotation } as CSSProperties} />)}</div>
 }
 
 function SpendingDonut({ summary }: { summary: MonthlySummary }) {
@@ -165,7 +171,7 @@ function App() {
   }, [])
   useEffect(() => {
     if (!showConfetti) return
-    const timer = window.setTimeout(() => setShowConfetti(false), 950)
+    const timer = window.setTimeout(() => setShowConfetti(false), 1450)
     return () => window.clearTimeout(timer)
   }, [showConfetti])
 
