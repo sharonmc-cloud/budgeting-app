@@ -30,21 +30,29 @@ const money = (cents: number) => currency.format(cents / 100)
 const formatDate = (key: string, weekday = true) => new Intl.DateTimeFormat(undefined, { ...(weekday ? { weekday: 'long' as const } : {}), month: 'long', day: 'numeric', year: key.slice(0, 4) === getLocalDateKey().slice(0, 4) ? undefined : 'numeric' }).format(new Date(`${key}T12:00:00`))
 const formatMonth = (key: string) => new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(new Date(`${key}-01T12:00:00`))
 
-const confettiPieces = Array.from({ length: 48 }, (_, index) => {
+const confettiPieces = Array.from({ length: 56 }, (_, index) => {
   const launchesFromLeft = index % 2 === 0
-  const spread = 55 + ((index * 43) % 250)
+  const direction = launchesFromLeft ? 1 : -1
+  const sparkle = index % 9 === 0
   return {
     origin: launchesFromLeft ? 'left' : 'right',
-    burstX: `${launchesFromLeft ? spread : -spread}px`,
-    burstY: `${45 + ((index * 17) % 36)}vh`,
-    drift: `${launchesFromLeft ? 20 + ((index * 29) % 90) : -20 - ((index * 29) % 90)}px`,
-    delay: `${(index % 12) * 12}ms`,
-    rotation: `${240 + ((index * 47) % 420)}deg`,
+    sparkle,
+    launchX: `${direction * (7 + ((index * 13) % 23))}vw`,
+    launchY: `${-(28 + ((index * 19) % 29))}vh`,
+    apexX: `${direction * (18 + ((index * 31) % 69))}vw`,
+    apexY: `${-(58 + ((index * 23) % 43))}vh`,
+    driftX: `${direction * (12 + ((index * 37) % 82))}vw`,
+    driftY: `${-(22 + ((index * 11) % 31))}vh`,
+    size: `${sparkle ? 10 + ((index * 3) % 6) : 6 + ((index * 5) % 7)}px`,
+    delay: `${(index * 29) % 190}ms`,
+    duration: `${980 + ((index * 71) % 570)}ms`,
+    flutterDuration: `${180 + ((index * 41) % 260)}ms`,
+    rotation: `${(index % 4 < 2 ? 1 : -1) * (360 + ((index * 67) % 720))}deg`,
   }
 })
 
 function ConfettiBurst() {
-  return <div className="confetti" aria-hidden="true">{confettiPieces.map((piece, index) => <span className={`confetti__piece confetti__piece--${piece.origin}`} key={index} style={{ '--confetti-burst-x': piece.burstX, '--confetti-burst-y': piece.burstY, '--confetti-drift': piece.drift, '--confetti-delay': piece.delay, '--confetti-rotation': piece.rotation } as CSSProperties} />)}</div>
+  return <div className="confetti" aria-hidden="true">{confettiPieces.map((piece, index) => <span className={`confetti__piece confetti__piece--${piece.origin}${piece.sparkle ? ' confetti__piece--sparkle' : ''}`} key={index} style={{ '--confetti-launch-x': piece.launchX, '--confetti-launch-y': piece.launchY, '--confetti-apex-x': piece.apexX, '--confetti-apex-y': piece.apexY, '--confetti-drift-x': piece.driftX, '--confetti-drift-y': piece.driftY, '--confetti-size': piece.size, '--confetti-delay': piece.delay, '--confetti-duration': piece.duration, '--confetti-flutter-duration': piece.flutterDuration, '--confetti-rotation': piece.rotation } as CSSProperties} />)}</div>
 }
 
 function SpendingDonut({ summary }: { summary: MonthlySummary }) {
@@ -170,8 +178,21 @@ function App() {
     return () => { document.removeEventListener('keydown', closeMenu); document.removeEventListener('pointerdown', closeMenu) }
   }, [])
   useEffect(() => {
+    const useKeyboardFocus = (event: KeyboardEvent) => {
+      if (event.key === 'Tab') document.documentElement.dataset.inputModality = 'keyboard'
+    }
+    const usePointerFocus = () => { document.documentElement.dataset.inputModality = 'pointer' }
+    document.addEventListener('keydown', useKeyboardFocus)
+    document.addEventListener('pointerdown', usePointerFocus)
+    return () => {
+      document.removeEventListener('keydown', useKeyboardFocus)
+      document.removeEventListener('pointerdown', usePointerFocus)
+      delete document.documentElement.dataset.inputModality
+    }
+  }, [])
+  useEffect(() => {
     if (!showConfetti) return
-    const timer = window.setTimeout(() => setShowConfetti(false), 1450)
+    const timer = window.setTimeout(() => setShowConfetti(false), 1800)
     return () => window.clearTimeout(timer)
   }, [showConfetti])
 
