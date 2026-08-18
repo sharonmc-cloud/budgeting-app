@@ -209,23 +209,31 @@ function App() {
   const dayTransactions = transactions.filter((item) => item.date === activeDate)
   const isToday = activeDate === today
   const editable = activeDate.slice(0, 7) === monthKey
+  const dayComplete = completions[activeDate] === true
+  const canModifyDay = editable && !dayComplete
   const historicalChange = !isToday
   const resetEntry = () => { setAmount(''); setNote(''); setSelectedCategory(null) }
   const changed = () => { if (historicalChange) { setNotice('Later daily balances were recalculated.'); window.setTimeout(() => setNotice(''), 3500) } }
   function addExpense() {
-    if (!selectedCategory) return
+    if (!canModifyDay || !selectedCategory) return
     const amountCents = parseMoneyToCents(amount)
     if (amountCents === null) return
     const normalizedNote = note.trim()
     setTransactions((all) => [...all, { id: createId(), date: activeDate, category: selectedCategory, amountCents, ...(normalizedNote ? { note: normalizedNote } : {}) }]); resetEntry(); changed()
   }
   function saveTransaction(id: string) {
+    const transaction = transactions.find((item) => item.id === id)
+    if (!transaction || transaction.date.slice(0, 7) !== monthKey || completions[transaction.date]) return
     const amountCents = parseMoneyToCents(editingAmount)
     if (amountCents === null) return
     const normalizedNote = editingNote.trim()
     setTransactions((all) => all.map((item) => item.id === id ? { ...item, amountCents, category: editingCategory, note: normalizedNote || undefined } : item)); setEditingId(null); changed()
   }
-  function deleteTransaction(id: string) { setTransactions((all) => all.filter((item) => item.id !== id)); setEditingId(null); setOpenMenuId(null); changed() }
+  function deleteTransaction(id: string) {
+    const transaction = transactions.find((item) => item.id === id)
+    if (!transaction || transaction.date.slice(0, 7) !== monthKey || completions[transaction.date]) return
+    setTransactions((all) => all.filter((item) => item.id !== id)); setEditingId(null); setOpenMenuId(null); changed()
+  }
   function navigate(next: View, date = today) { setView(next); setSelectedDate(date); setEditingId(null); setOpenMenuId(null); resetEntry(); setNotice('') }
 
   function openDrawer(month: string, category: string, trigger: HTMLButtonElement) {
@@ -252,6 +260,7 @@ function App() {
   }
 
   function beginEditing(transaction: DatedTransaction) {
+    if (transaction.date.slice(0, 7) !== monthKey || completions[transaction.date]) return
     setEditingId(transaction.id)
     setEditingAmount(String(transaction.amountCents / 100))
     setEditingCategory(transaction.category)
@@ -273,7 +282,26 @@ function App() {
     saveConfiguration({ version: 1, amountCents, monthKey, setupDate: today, interpretation: 'remaining-month', rounding })
   }
 
-  function transactionRow(transaction: DatedTransaction, showDate = false, canEdit = editable) {
+  function completeDay() {
+    if (!editable || completions[activeDate]) return
+    resetEntry()
+    setEditingId(null)
+    setOpenMenuId(null)
+    setCompletions((all) => ({ ...all, [activeDate]: true }))
+    setShowConfetti(true)
+  }
+
+  function reopenDay() {
+    if (!editable || !completions[activeDate]) return
+    setCompletions((all) => {
+      const next = { ...all }
+      delete next[activeDate]
+      return next
+    })
+  }
+
+  function transactionRow(transaction: DatedTransaction, showDate = false, editingAllowed = editable) {
+    const canEdit = editingAllowed && !completions[transaction.date]
     return <div className={`transaction-row${editingId === transaction.id ? ' transaction-row--editing' : ''}${openMenuId === transaction.id ? ' transaction-row--menu-open' : ''}`} data-category={transaction.category} key={transaction.id}>{editingId === transaction.id ? <form className="transaction-edit" onSubmit={(event) => { event.preventDefault(); saveTransaction(transaction.id) }} onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setEditingId(null) } }}><label>Amount<span className="transaction-row__input-wrap"><span className="amount-prefix" aria-hidden="true">$</span><input className="transaction-row__input" inputMode="decimal" value={editingAmount} onChange={(event) => setEditingAmount(event.target.value)} autoFocus /></span></label><label>Category<select value={editingCategory} onChange={(event) => setEditingCategory(event.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label><label className="transaction-edit__note">Note<input type="text" value={editingNote} onChange={(event) => setEditingNote(event.target.value)} /></label><div className="transaction-row__actions"><button type="submit">Save</button><button type="button" onClick={() => setEditingId(null)}>Cancel</button></div></form> : <><div className="transaction-row__labels"><strong>{transaction.note || transaction.category}</strong>{transaction.note && <small>{transaction.category}</small>}{showDate && <time dateTime={transaction.date}>{formatDate(transaction.date)}</time>}</div><span className="transaction-row__amount">{money(transaction.amountCents)}</span>{canEdit && <div className="transaction-menu"><button className="transaction-menu__trigger" type="button" aria-label={`Transaction actions for ${transaction.note || transaction.category}`} aria-haspopup="menu" aria-expanded={openMenuId === transaction.id} onClick={(event) => toggleTransactionMenu(transaction.id, event.currentTarget)}>•••</button>{openMenuId === transaction.id && <div className={`transaction-menu__popover${menuOpensUp ? ' transaction-menu__popover--up' : ''}`} role="menu"><button role="menuitem" onClick={() => beginEditing(transaction)}>Edit</button><button className="transaction-row__delete" role="menuitem" onClick={() => deleteTransaction(transaction.id)}>Delete</button></div>}</div>}</>}</div>
   }
 
@@ -287,11 +315,11 @@ function App() {
   }
 
   return <main className="today"><PrimaryNav view={isToday ? 'today' : 'history'} navigate={navigate} />{!isToday && <button className="back-button" onClick={() => navigate('history')}>← Back to History</button>}<header className="today__header"><p className="today__date">{formatDate(activeDate)}</p><div className="balance"><h1 className="balance__amount">{money(activeBalance.endingBalanceCents)}</h1><p className="balance__label">{isToday ? 'available today' : 'ending balance'}</p><p className="balance__rollover">Includes {money(activeBalance.priorBalanceCents)} from the prior day</p></div></header>
-  {editable ? <><div className="categories" aria-label="Expense categories">{categories.map((category) => <CategoryButton key={category} label={category} selected={selectedCategory === category} onClick={() => setSelectedCategory(category)} />)}</div>{selectedCategory && <section className="expense-entry" aria-labelledby="expense-title"><h2 className="expense-entry__title" id="expense-title">{selectedCategory}</h2><form onSubmit={(event) => { event.preventDefault(); addExpense() }}><label className="expense-entry__label">Amount<span className="expense-entry__amount-wrap"><span className="amount-prefix" aria-hidden="true">$</span><input ref={inputRef} className="expense-entry__input" inputMode="decimal" placeholder="0" value={amount} onChange={(event) => setAmount(event.target.value)} /></span></label><label className="expense-entry__label expense-entry__label--note">Note<input className="expense-entry__note" type="text" value={note} onChange={(event) => setNote(event.target.value)} /></label><button className="expense-entry__button" type="submit">Add {amount ? `$${amount}` : '$0'}</button></form></section>}</> : <p className="read-only" role="note">Previous months are view only.</p>}
+  {editable ? <><div className={`categories${dayComplete ? ' categories--disabled' : ''}`} aria-label="Expense categories">{categories.map((category) => <CategoryButton key={category} label={category} selected={!dayComplete && selectedCategory === category} disabled={dayComplete} onClick={() => setSelectedCategory(category)} />)}</div>{canModifyDay && selectedCategory && <section className="expense-entry" aria-labelledby="expense-title"><h2 className="expense-entry__title" id="expense-title">{selectedCategory}</h2><form onSubmit={(event) => { event.preventDefault(); addExpense() }}><label className="expense-entry__label">Amount<span className="expense-entry__amount-wrap"><span className="amount-prefix" aria-hidden="true">$</span><input ref={inputRef} className="expense-entry__input" inputMode="decimal" placeholder="0" value={amount} onChange={(event) => setAmount(event.target.value)} /></span></label><label className="expense-entry__label expense-entry__label--note">Note<input className="expense-entry__note" type="text" value={note} onChange={(event) => setNote(event.target.value)} /></label><button className="expense-entry__button" type="submit">Add {amount ? `$${amount}` : '$0'}</button></form></section>}</> : <p className="read-only" role="note">Previous months are view only.</p>}
   {notice && <p className="recalculation-notice" role="status">{notice}</p>}
   <section className="spending" aria-labelledby="spending-title"><h2 className="spending__title" id="spending-title">{isToday ? "Today's spending" : 'Spending'}</h2>{dayTransactions.length === 0 ? <p className="spending__empty">No spending logged for this day.</p> : <div className="transaction-list">{dayTransactions.map((transaction) => transactionRow(transaction))}</div>}</section>
   {showConfetti && <ConfettiBurst />}
-  {isToday && <section className={`day-finish${completions[today] ? ' day-finish--complete' : ''}`}>{completions[today] ? <div className="day-complete" role="status"><p className="day-complete__eyebrow">Checked in</p><h2 className="day-complete__title">Day complete.</h2><p className="day-complete__rollover"><strong>{money(activeBalance.endingBalanceCents)}</strong> rolls into tomorrow.</p></div> : <button className="day-finish__button" onClick={() => { setCompletions((all) => ({ ...all, [today]: true })); setShowConfetti(true) }}><span>Finish my day</span><span className="day-finish__button-mark" aria-hidden="true">✓</span></button>}</section>}</main>
+  {editable && <section className={`day-finish${dayComplete ? ' day-finish--complete' : ''}`}>{dayComplete ? <div className="day-complete"><div role="status"><h2 className="day-complete__title">Day complete.</h2><p className="day-complete__rollover"><strong>{money(activeBalance.endingBalanceCents)}</strong> rolls into tomorrow.</p></div><button className="day-complete__reopen" type="button" onClick={reopenDay}>Reopen Day</button></div> : <button className="day-finish__button" type="button" onClick={completeDay}><span>Complete Day</span><span className="day-finish__button-mark" aria-hidden="true">✓</span></button>}</section>}</main>
 }
 
 function PrimaryNav({ view, navigate }: { view: View; navigate: (view: View, date?: string) => void }) { return <nav className="primary-nav" aria-label="Primary"><button aria-current={view === 'today' ? 'page' : undefined} onClick={() => navigate('today')}>Today</button><button aria-current={view === 'history' || view === 'detail' ? 'page' : undefined} onClick={() => navigate('history')}>History</button><button aria-current={view === 'settings' ? 'page' : undefined} onClick={() => navigate('settings')}>Settings</button></nav> }
