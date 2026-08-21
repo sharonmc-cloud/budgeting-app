@@ -9,6 +9,8 @@
   text-align: center;
 }
 
+.setup--active .setup__header { margin-bottom: 1.5rem; }
+
 .setup__eyebrow {
   display: inline-block;
   padding: 0.5rem 1.2rem;
@@ -67,6 +69,12 @@
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 0.92;
+}
+
+.setup-card__heading {
+  display: flex;
+  align-items: flex-start;
+  padding-right: 0 !important;
 }
 
 .setup-card h2 { padding-right: 3.25rem; }
@@ -142,8 +150,17 @@ html[data-input-modality='keyboard'] .money-input:has(input:focus-visible) { out
   border: 3px solid var(--color-ink);
   border-radius: .75rem;
   background: var(--color-yellow);
-  font-size: 1.35rem;
 }
+.setup-card__tip svg {
+  width: 1.65rem;
+  height: 1.65rem;
+  fill: none;
+  stroke: var(--color-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.setup-card--empty .setup-card__tip { margin-top: 2.25rem; }
 .radio-stack { display: grid; gap: 1rem; }
 .radio-card, .rounding-card { position: relative; display: block; cursor: pointer; }
 .radio-card input, .rounding-card input { position: absolute; width: 1px; height: 1px; opacity: 0; }
@@ -169,6 +186,7 @@ html[data-input-modality='keyboard'] .money-input:has(input:focus-visible) { out
   background: #fff;
 }
 .radio-card input:checked + span i { box-shadow: inset 0 0 0 .38rem #fff; background: var(--color-ink); }
+.radio-card input:checked + span { box-shadow: 5px 6px 0 var(--color-ink); transform: translate(-2px, -2px); }
 .radio-card b { display: grid; gap: .25rem; font-weight: inherit; }
 .radio-card strong, .rounding-card strong { font-family: var(--font-display); font-size: 1.45rem; line-height: 1; }
 .radio-card small { font-size: 1rem; line-height: 1.25; }
@@ -177,7 +195,9 @@ html[data-input-modality='keyboard'] .rounding-card input:focus-visible + span {
 .rounding-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .8rem; }
 .rounding-card > span {
   display: grid;
+  grid-template-rows: auto auto;
   align-content: center;
+  justify-items: center;
   gap: .65rem;
   min-height: 7.5rem;
   padding: .75rem .4rem;

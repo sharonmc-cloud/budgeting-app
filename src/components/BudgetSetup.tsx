@@ -57,7 +57,7 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'down',
   }
 
   return (
-    <main className="setup">
+    <main className={`setup${amountCents !== null ? ' setup--active' : ''}`}>
       <header className="setup__header">
         <p className="setup__eyebrow">{newMonth ? `New month · ${month.monthName}` : 'Your spending game plan'}</p>
         <h1>{newMonth ? `Set ${month.monthName}'s amount.` : 'Let\'s find your daily number.'}</h1>
@@ -65,7 +65,7 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'down',
       </header>
 
       <form onSubmit={submit} noValidate>
-        <section className="setup-card setup-card--amount" aria-labelledby="amount-title">
+        <section className={`setup-card setup-card--amount${amount.trim() ? '' : ' setup-card--empty'}`} aria-labelledby="amount-title">
           {!newMonth && <span className="setup-card__number" aria-hidden="true">1</span>}
           <h2 id="amount-title">{newMonth ? `Spending amount for ${month.monthName}` : 'How much can you spend this month?'}</h2>
           <label className="money-input">
@@ -96,11 +96,11 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'down',
               .
             </p>
           )}
-          {!newMonth && <div className="setup-card__tip"><span aria-hidden="true">💡</span><p>This is your balance for the month or whatever is left after rent, utilities, etc.</p></div>}
+          {!newMonth && <div className="setup-card__tip"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M8.3 14.5A6 6 0 1 1 15.7 14.5C14.7 15.2 14.2 16 14 17h-4c-.2-1-.7-1.8-1.7-2.5Z" /></svg></span><p>This is your balance for the month or whatever is left after rent, utilities, etc.</p></div>}
         </section>
 
-        {!newMonth && <fieldset className="setup-card">
-          <legend><span className="setup-card__number" aria-hidden="true">2</span>What does that amount represent?</legend>
+        {!newMonth && <fieldset className="setup-card" aria-labelledby="interpretation-title">
+          <h2 className="setup-card__heading" id="interpretation-title"><span className="setup-card__number" aria-hidden="true">2</span>What does that amount represent?</h2>
           <div className="radio-stack">
             <label className="radio-card radio-card--yellow">
               <input type="radio" name="interpretation" value="full-month" checked={interpretation === 'full-month'} onChange={() => setInterpretation('full-month')} />
@@ -113,8 +113,8 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'down',
           </div>
         </fieldset>}
 
-        <fieldset className="setup-card">
-          <legend>{!newMonth && <span className="setup-card__number" aria-hidden="true">3</span>}How should I show your daily amount?</legend>
+        <fieldset className="setup-card" aria-labelledby="rounding-title">
+          <h2 className="setup-card__heading" id="rounding-title">{!newMonth && <span className="setup-card__number" aria-hidden="true">3</span>}How should I show your daily amount?</h2>
           <div className="rounding-grid">
             {choices.map((choice) => {
               const preview = amountCents === null ? null : getDailyAllocationCents(amountCents, days, choice.value)
