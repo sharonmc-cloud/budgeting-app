@@ -19,7 +19,7 @@ const currency = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 })
 
-function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'exact', newMonth = false, onCancel }: Props) {
+function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'down', newMonth = false, onCancel }: Props) {
   const today = useMemo(() => new Date(), [])
   const month = getMonthDetails(today)
   const [amount, setAmount] = useState(initialAmountCents ? String(initialAmountCents / 100) : '')
@@ -35,8 +35,8 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'exact'
       : getDailyAllocationCents(amountCents, days, 'exact')
 
   const choices: Array<{ value: RoundingPreference; label: string }> = [
-    { value: 'exact', label: 'Exact' },
     { value: 'down', label: 'Round down' },
+    { value: 'exact', label: 'Exact' },
     { value: 'up', label: 'Round up' },
   ]
 
@@ -96,18 +96,19 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'exact'
               .
             </p>
           )}
+          {!newMonth && <div className="setup-card__tip"><span aria-hidden="true">💡</span><p>This is your balance for the month or whatever is left after rent, utilities, etc.</p></div>}
         </section>
 
         {!newMonth && <fieldset className="setup-card">
           <legend><span className="setup-card__number" aria-hidden="true">2</span>What does that amount represent?</legend>
           <div className="radio-stack">
-            <label className="radio-card">
-              <input type="radio" name="interpretation" value="remaining-month" checked={interpretation === 'remaining-month'} onChange={() => setInterpretation('remaining-month')} />
-              <span><strong>Remaining month</strong><small>I have this much left for the rest of {month.monthName}.</small><em>{month.remainingDays} days, including today</em></span>
-            </label>
             <label className="radio-card radio-card--yellow">
               <input type="radio" name="interpretation" value="full-month" checked={interpretation === 'full-month'} onChange={() => setInterpretation('full-month')} />
-              <span><strong>Full month</strong><small>This is my budget for all of {month.monthName}.</small><em>{month.totalDays} calendar days</em></span>
+              <span><i aria-hidden="true" /><b><strong>Full month</strong><small>This is my budget for all of {month.monthName} ({month.totalDays} days).</small></b></span>
+            </label>
+            <label className="radio-card">
+              <input type="radio" name="interpretation" value="remaining-month" checked={interpretation === 'remaining-month'} onChange={() => setInterpretation('remaining-month')} />
+              <span><i aria-hidden="true" /><b><strong>Remaining month</strong><small>I have this much left for the rest of {month.monthName}.</small></b></span>
             </label>
           </div>
         </fieldset>}
