@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import './App.css'
 import CategoryButton from './components/CategoryButton'
 import BudgetSetup from './components/BudgetSetup'
+import BudgetConfirmed from './components/BudgetConfirmed'
 import Settings from './components/Settings'
 import {
   createNewMonthBudget,
@@ -142,6 +143,7 @@ function App() {
   const [drawer, setDrawer] = useState<{ month: string; category: string } | null>(null)
   const [drawerClosing, setDrawerClosing] = useState(false)
   const [showConfetti, setShowConfetti] = useState(false)
+  const [confirmedConfiguration, setConfirmedConfiguration] = useState<BudgetConfiguration | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const drawerRef = useRef<HTMLDialogElement>(null)
   const drawerTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -197,11 +199,17 @@ function App() {
   }, [showConfetti])
 
   const saveConfiguration = (configuration: BudgetConfiguration) => { saveBudget(configuration); setConfigurations(loadBudgetConfigurations()); setShowSetup(false) }
-  if (!currentConfiguration && !previousConfiguration) return <BudgetSetup onComplete={saveConfiguration} />
+  if (!currentConfiguration && !previousConfiguration) return <BudgetSetup onComplete={(configuration) => { saveConfiguration(configuration); setConfirmedConfiguration(configuration) }} />
   if (!currentConfiguration && showSetup && previousConfiguration) return <BudgetSetup initialAmountCents={previousConfiguration.amountCents} initialRounding={previousConfiguration.rounding} newMonth onCancel={() => setShowSetup(false)} onComplete={(configuration) => saveConfiguration(createNewMonthBudget(previousConfiguration, monthKey, today, configuration.amountCents, configuration.rounding))} />
   if (!currentConfiguration && previousConfiguration) {
     const details = getMonthDetails()
     return <NewMonthPrompt previous={previousConfiguration} monthName={details.monthName} onEdit={() => setShowSetup(true)} onKeep={() => saveConfiguration(createNewMonthBudget(previousConfiguration, monthKey, today))} />
+  }
+  if (confirmedConfiguration) {
+    const spentCents = transactions
+      .filter((transaction) => transaction.date.slice(0, 7) === confirmedConfiguration.monthKey)
+      .reduce((total, transaction) => total + transaction.amountCents, 0)
+    return <BudgetConfirmed configuration={confirmedConfiguration} spentCents={spentCents} onContinue={() => setConfirmedConfiguration(null)} />
   }
 
   const activeDate = view === 'today' ? today : selectedDate
