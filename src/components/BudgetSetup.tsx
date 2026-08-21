@@ -19,7 +19,7 @@ const currency = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 })
 
-function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'exact', newMonth = false, onCancel }: Props) {
+function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'down', newMonth = false, onCancel }: Props) {
   const today = useMemo(() => new Date(), [])
   const month = getMonthDetails(today)
   const [amount, setAmount] = useState(initialAmountCents ? String(initialAmountCents / 100) : '')
@@ -35,8 +35,8 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'exact'
       : getDailyAllocationCents(amountCents, days, 'exact')
 
   const choices: Array<{ value: RoundingPreference; label: string }> = [
-    { value: 'exact', label: 'Exact' },
     { value: 'down', label: 'Round down' },
+    { value: 'exact', label: 'Exact' },
     { value: 'up', label: 'Round up' },
   ]
 
@@ -57,7 +57,7 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'exact'
   }
 
   return (
-    <main className="setup">
+    <main className={`setup${amountCents !== null ? ' setup--active' : ''}`}>
       <header className="setup__header">
         <p className="setup__eyebrow">{newMonth ? `New month · ${month.monthName}` : 'Your spending game plan'}</p>
         <h1>{newMonth ? `Set ${month.monthName}'s amount.` : 'Let\'s find your daily number.'}</h1>
@@ -65,7 +65,7 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'exact'
       </header>
 
       <form onSubmit={submit} noValidate>
-        <section className="setup-card setup-card--amount" aria-labelledby="amount-title">
+        <section className={`setup-card setup-card--amount${amount.trim() ? '' : ' setup-card--empty'}`} aria-labelledby="amount-title">
           {!newMonth && <span className="setup-card__number" aria-hidden="true">1</span>}
           <h2 id="amount-title">{newMonth ? `Spending amount for ${month.monthName}` : 'How much can you spend this month?'}</h2>
           <label className="money-input">
@@ -96,31 +96,32 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'exact'
               .
             </p>
           )}
+          {!newMonth && <div className="setup-card__tip"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M8.3 14.5A6 6 0 1 1 15.7 14.5C14.7 15.2 14.2 16 14 17h-4c-.2-1-.7-1.8-1.7-2.5Z" /></svg></span><p>This is your balance for the month or whatever is left after rent, utilities, etc.</p></div>}
         </section>
 
-        {!newMonth && <fieldset className="setup-card">
-          <legend><span className="setup-card__number" aria-hidden="true">2</span>What does that amount represent?</legend>
+        {!newMonth && <fieldset className="setup-card" aria-labelledby="interpretation-title">
+          <h2 className="setup-card__heading" id="interpretation-title"><span className="setup-card__number" aria-hidden="true">2</span>What does that amount represent?</h2>
           <div className="radio-stack">
-            <label className="radio-card">
-              <input type="radio" name="interpretation" value="remaining-month" checked={interpretation === 'remaining-month'} onChange={() => setInterpretation('remaining-month')} />
-              <span><strong>Remaining month</strong><small>I have this much left for the rest of {month.monthName}.</small><em>{month.remainingDays} days, including today</em></span>
-            </label>
             <label className="radio-card radio-card--yellow">
               <input type="radio" name="interpretation" value="full-month" checked={interpretation === 'full-month'} onChange={() => setInterpretation('full-month')} />
-              <span><strong>Full month</strong><small>This is my budget for all of {month.monthName}.</small><em>{month.totalDays} calendar days</em></span>
+              <span><i aria-hidden="true" /><b><strong>Full month</strong><small>This is my budget for all of {month.monthName} ({month.totalDays} days).</small></b></span>
+            </label>
+            <label className="radio-card">
+              <input type="radio" name="interpretation" value="remaining-month" checked={interpretation === 'remaining-month'} onChange={() => setInterpretation('remaining-month')} />
+              <span><i aria-hidden="true" /><b><strong>Remaining month</strong><small>I have this much left for the rest of {month.monthName}.</small></b></span>
             </label>
           </div>
         </fieldset>}
 
-        <fieldset className="setup-card">
-          <legend>{!newMonth && <span className="setup-card__number" aria-hidden="true">3</span>}How should I show your daily amount?</legend>
+        <fieldset className="setup-card" aria-labelledby="rounding-title">
+          <h2 className="setup-card__heading" id="rounding-title">{!newMonth && <span className="setup-card__number" aria-hidden="true">3</span>}How should I show your daily amount?</h2>
           <div className="rounding-grid">
             {choices.map((choice) => {
               const preview = amountCents === null ? null : getDailyAllocationCents(amountCents, days, choice.value)
               return (
                 <label className="rounding-card" key={choice.value}>
                   <input type="radio" name="rounding" value={choice.value} checked={rounding === choice.value} onChange={() => setRounding(choice.value)} />
-                  <span><strong>{choice.label}</strong><small>{preview === null ? '—' : currency.format(preview / 100)}</small></span>
+                  <span><i aria-hidden="true" /><b><strong>{choice.label}</strong><small>{preview === null ? '—' : currency.format(preview / 100)}</small></b></span>
                 </label>
               )
             })}
