@@ -121,7 +121,7 @@ function BudgetSetup({ onComplete, initialAmountCents, initialRounding = 'down',
               return (
                 <label className="rounding-card" key={choice.value}>
                   <input type="radio" name="rounding" value={choice.value} checked={rounding === choice.value} onChange={() => setRounding(choice.value)} />
-                  <span><strong>{choice.label}</strong><small>{preview === null ? '—' : currency.format(preview / 100)}</small></span>
+                  <span><i aria-hidden="true" /><b><strong>{choice.label}</strong><small>{preview === null ? '—' : currency.format(preview / 100)}</small></b></span>
                 </label>
               )
             })}
