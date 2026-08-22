@@ -82,6 +82,25 @@ test('storage persists by month and does not apply an outdated month', () => {
   assert.equal(loadBudgetForMonth('2026-09'), null)
 })
 
+test('a failed budget storage write is reported without throwing', () => {
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: () => null,
+      setItem: () => { throw new Error('Storage unavailable') },
+    },
+  })
+  const configuration: BudgetConfiguration = {
+    version: 1,
+    amountCents: 150_000,
+    monthKey: '2026-08',
+    setupDate: '2026-08-16',
+    interpretation: 'remaining-month',
+    rounding: 'exact',
+  }
+  assert.equal(saveBudget(configuration), false)
+})
+
 test('legacy single-month configurations migrate once and same-day updates replace', () => {
   const values = new Map<string, string>()
   const original: BudgetConfiguration = { version: 1, amountCents: 10000, monthKey: '2026-08', setupDate: '2026-08-01', interpretation: 'full-month', rounding: 'exact' }

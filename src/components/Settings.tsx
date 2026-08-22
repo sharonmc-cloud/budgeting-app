@@ -12,7 +12,7 @@ const labels: Record<RoundingPreference, string> = { exact: 'Exact', down: 'Roun
 type Props = {
   configuration: BudgetConfiguration
   today: string
-  onSave: (amountCents: number, rounding: RoundingPreference) => void
+  onSave: (amountCents: number, rounding: RoundingPreference) => boolean
 }
 
 export default function Settings({ configuration, today, onSave }: Props) {
@@ -27,7 +27,7 @@ export default function Settings({ configuration, today, onSave }: Props) {
     event.preventDefault()
     const amountCents = parseMoneyToCents(amount)
     if (amountCents === null) { setError(true); return }
-    onSave(amountCents, rounding)
+    if (!onSave(amountCents, rounding)) return
     setEditing(false)
     setSaved(true)
     window.setTimeout(() => setSaved(false), 3500)
@@ -48,5 +48,9 @@ export default function Settings({ configuration, today, onSave }: Props) {
       <div className="settings__actions"><button className="setup__submit" type="submit">Save update <span aria-hidden="true">→</span></button><button className="secondary-button" type="button" onClick={() => setEditing(false)}>Cancel</button></div>
     </form>}
     {saved && <p className="recalculation-notice" role="status">Current month settings saved.</p>}
+    <aside className="settings-data" aria-labelledby="settings-data-title">
+      <h2 id="settings-data-title">Your data stays on this device</h2>
+      <p>Your budget is saved in this browser and isn't synced or backed up.</p>
+    </aside>
   </section>
 }

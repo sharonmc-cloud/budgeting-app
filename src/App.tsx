@@ -20,6 +20,7 @@ const transactionsStorageKey = 'transactions'
 const dayCompletionsStorageKey = 'dayCompletions'
 const migrationKey = 'calendarDayMigrationVersion'
 const transactionDataVersion = '2'
+const storageErrorMessage = "Couldn't save your changes. Your browser storage may be unavailable or full."
 type DayCompletions = Record<string, boolean>
 type View = 'today' | 'history' | 'detail' | 'settings'
 
@@ -138,6 +139,7 @@ function App() {
   const [openMenuId, setOpenMenuId] = useState<string | null>(null)
   const [menuOpensUp, setMenuOpensUp] = useState(false)
   const [notice, setNotice] = useState('')
+  const [storageError, setStorageError] = useState('')
   const [showSetup, setShowSetup] = useState(false)
   const [drawer, setDrawer] = useState<{ month: string; category: string } | null>(null)
   const [drawerClosing, setDrawerClosing] = useState(false)
@@ -160,8 +162,6 @@ function App() {
     }))
   }, [balances, configurations, monthKey, today, trackingStart, transactions])
 
-  useEffect(() => localStorage.setItem(transactionsStorageKey, JSON.stringify(transactions)), [transactions])
-  useEffect(() => localStorage.setItem(dayCompletionsStorageKey, JSON.stringify(completions)), [completions])
   useEffect(() => { if (selectedCategory) inputRef.current?.focus() }, [selectedCategory])
   useEffect(() => {
     const dialog = drawerRef.current
@@ -196,12 +196,19 @@ function App() {
     return () => window.clearTimeout(timer)
   }, [showConfetti])
 
-  const saveConfiguration = (configuration: BudgetConfiguration) => { saveBudget(configuration); setConfigurations(loadBudgetConfigurations()); setShowSetup(false) }
-  if (!currentConfiguration && !previousConfiguration) return <BudgetSetup onComplete={saveConfiguration} />
-  if (!currentConfiguration && showSetup && previousConfiguration) return <BudgetSetup initialAmountCents={previousConfiguration.amountCents} initialRounding={previousConfiguration.rounding} newMonth onCancel={() => setShowSetup(false)} onComplete={(configuration) => saveConfiguration(createNewMonthBudget(previousConfiguration, monthKey, today, configuration.amountCents, configuration.rounding))} />
+  const storageErrorNotice = storageError && <p className="read-only storage-error" role="alert">{storageError}</p>
+  const saveConfiguration = (configuration: BudgetConfiguration) => {
+    if (!saveBudget(configuration)) { setStorageError(storageErrorMessage); return false }
+    setStorageError('')
+    setConfigurations(loadBudgetConfigurations())
+    setShowSetup(false)
+    return true
+  }
+  if (!currentConfiguration && !previousConfiguration) return <>{storageErrorNotice}<BudgetSetup onComplete={saveConfiguration} /></>
+  if (!currentConfiguration && showSetup && previousConfiguration) return <>{storageErrorNotice}<BudgetSetup initialAmountCents={previousConfiguration.amountCents} initialRounding={previousConfiguration.rounding} newMonth onCancel={() => setShowSetup(false)} onComplete={(configuration) => saveConfiguration(createNewMonthBudget(previousConfiguration, monthKey, today, configuration.amountCents, configuration.rounding))} /></>
   if (!currentConfiguration && previousConfiguration) {
     const details = getMonthDetails()
-    return <NewMonthPrompt previous={previousConfiguration} monthName={details.monthName} onEdit={() => setShowSetup(true)} onKeep={() => saveConfiguration(createNewMonthBudget(previousConfiguration, monthKey, today))} />
+    return <>{storageErrorNotice}<NewMonthPrompt previous={previousConfiguration} monthName={details.monthName} onEdit={() => setShowSetup(true)} onKeep={() => saveConfiguration(createNewMonthBudget(previousConfiguration, monthKey, today))} /></>
   }
 
   const activeDate = view === 'today' ? today : selectedDate
@@ -214,12 +221,18 @@ function App() {
   const historicalChange = !isToday
   const resetEntry = () => { setAmount(''); setNote(''); setSelectedCategory(null) }
   const changed = () => { if (historicalChange) { setNotice('Later daily balances were recalculated.'); window.setTimeout(() => setNotice(''), 3500) } }
+  function persist(key: string, value: unknown) {
+    try { localStorage.setItem(key, JSON.stringify(value)); setStorageError(''); return true }
+    catch { setStorageError(storageErrorMessage); return false }
+  }
   function addExpense() {
     if (!canModifyDay || !selectedCategory) return
     const amountCents = parseMoneyToCents(amount)
     if (amountCents === null) return
     const normalizedNote = note.trim()
-    setTransactions((all) => [...all, { id: createId(), date: activeDate, category: selectedCategory, amountCents, ...(normalizedNote ? { note: normalizedNote } : {}) }]); resetEntry(); changed()
+    const next = [...transactions, { id: createId(), date: activeDate, category: selectedCategory, amountCents, ...(normalizedNote ? { note: normalizedNote } : {}) }]
+    persist(transactionsStorageKey, next)
+    setTransactions(next); resetEntry(); changed()
   }
   function saveTransaction(id: string) {
     const transaction = transactions.find((item) => item.id === id)
@@ -227,12 +240,16 @@ function App() {
     const amountCents = parseMoneyToCents(editingAmount)
     if (amountCents === null) return
     const normalizedNote = editingNote.trim()
-    setTransactions((all) => all.map((item) => item.id === id ? { ...item, amountCents, category: editingCategory, note: normalizedNote || undefined } : item)); setEditingId(null); changed()
+    const next = transactions.map((item) => item.id === id ? { ...item, amountCents, category: editingCategory, note: normalizedNote || undefined } : item)
+    persist(transactionsStorageKey, next)
+    setTransactions(next); setEditingId(null); changed()
   }
   function deleteTransaction(id: string) {
     const transaction = transactions.find((item) => item.id === id)
     if (!transaction || transaction.date.slice(0, 7) !== monthKey || completions[transaction.date]) return
-    setTransactions((all) => all.filter((item) => item.id !== id)); setEditingId(null); setOpenMenuId(null); changed()
+    const next = transactions.filter((item) => item.id !== id)
+    persist(transactionsStorageKey, next)
+    setTransactions(next); setEditingId(null); setOpenMenuId(null); changed()
   }
   function navigate(next: View, date = today) { setView(next); setSelectedDate(date); setEditingId(null); setOpenMenuId(null); resetEntry(); setNotice('') }
 
@@ -279,7 +296,7 @@ function App() {
   }
 
   function saveSettings(amountCents: number, rounding: RoundingPreference) {
-    saveConfiguration({ version: 1, amountCents, monthKey, setupDate: today, interpretation: 'remaining-month', rounding })
+    return saveConfiguration({ version: 1, amountCents, monthKey, setupDate: today, interpretation: 'remaining-month', rounding })
   }
 
   function completeDay() {
@@ -287,17 +304,18 @@ function App() {
     resetEntry()
     setEditingId(null)
     setOpenMenuId(null)
-    setCompletions((all) => ({ ...all, [activeDate]: true }))
+    const next = { ...completions, [activeDate]: true }
+    persist(dayCompletionsStorageKey, next)
+    setCompletions(next)
     setShowConfetti(true)
   }
 
   function reopenDay() {
     if (!editable || !completions[activeDate]) return
-    setCompletions((all) => {
-      const next = { ...all }
-      delete next[activeDate]
-      return next
-    })
+    const next = { ...completions }
+    delete next[activeDate]
+    persist(dayCompletionsStorageKey, next)
+    setCompletions(next)
   }
 
   function transactionRow(transaction: DatedTransaction, showDate = false, editingAllowed = editable) {
@@ -305,16 +323,16 @@ function App() {
     return <div className={`transaction-row${editingId === transaction.id ? ' transaction-row--editing' : ''}${openMenuId === transaction.id ? ' transaction-row--menu-open' : ''}`} data-category={transaction.category} key={transaction.id}>{editingId === transaction.id ? <form className="transaction-edit" onSubmit={(event) => { event.preventDefault(); saveTransaction(transaction.id) }} onKeyDown={(event) => { if (event.key === 'Escape') { event.stopPropagation(); setEditingId(null) } }}><label>Amount<span className="transaction-row__input-wrap"><span className="amount-prefix" aria-hidden="true">$</span><input className="transaction-row__input" inputMode="decimal" value={editingAmount} onChange={(event) => setEditingAmount(event.target.value)} autoFocus /></span></label><label>Category<select value={editingCategory} onChange={(event) => setEditingCategory(event.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></label><label className="transaction-edit__note">Note<input type="text" value={editingNote} onChange={(event) => setEditingNote(event.target.value)} /></label><div className="transaction-row__actions"><button type="submit">Save</button><button type="button" onClick={() => setEditingId(null)}>Cancel</button></div></form> : <><div className="transaction-row__labels"><strong>{transaction.note || transaction.category}</strong>{transaction.note && <small>{transaction.category}</small>}{showDate && <time dateTime={transaction.date}>{formatDate(transaction.date)}</time>}</div><span className="transaction-row__amount">{money(transaction.amountCents)}</span>{canEdit && <div className="transaction-menu"><button className="transaction-menu__trigger" type="button" aria-label={`Transaction actions for ${transaction.note || transaction.category}`} aria-haspopup="menu" aria-expanded={openMenuId === transaction.id} onClick={(event) => toggleTransactionMenu(transaction.id, event.currentTarget)}>•••</button>{openMenuId === transaction.id && <div className={`transaction-menu__popover${menuOpensUp ? ' transaction-menu__popover--up' : ''}`} role="menu"><button role="menuitem" onClick={() => beginEditing(transaction)}>Edit</button><button className="transaction-row__delete" role="menuitem" onClick={() => deleteTransaction(transaction.id)}>Delete</button></div>}</div>}</>}</div>
   }
 
-  if (view === 'settings') return <main className="today"><PrimaryNav view={view} navigate={navigate} /><Settings configuration={currentConfiguration!} today={today} onSave={saveSettings} /></main>
+  if (view === 'settings') return <main className="today"><PrimaryNav view={view} navigate={navigate} />{storageErrorNotice}<Settings configuration={currentConfiguration!} today={today} onSave={saveSettings} /></main>
 
   if (view === 'history') {
     const hasPastDays = balances.some((day) => day.date < today)
     const drawerTransactions = drawer ? transactions.filter((transaction) => transaction.category === drawer.category && transaction.date.slice(0, 7) === drawer.month && balanceMap.has(transaction.date)).sort((a, b) => b.date.localeCompare(a.date)) : []
     const drawerTotal = drawerTransactions.reduce((sum, transaction) => sum + transaction.amountCents, 0)
-    return <><main className="today history"><PrimaryNav view={view} navigate={navigate} /><header className="history__header"><p className="setup__eyebrow">Your days</p><h1>History</h1><p>Every budgeting day, newest first.</p></header>{!hasPastDays && <p className="history__empty">Your past days will appear here as you use the app.</p>}{historyMonths.map((month) => <section className="history-month" aria-labelledby={`month-${month.key}`} key={month.key}><h2 id={`month-${month.key}`}>{formatMonth(month.key)}</h2><MonthlyHistorySummary summary={month.summary} current={month.key === monthKey} onSelectCategory={(category, trigger) => openDrawer(month.key, category, trigger)} />{hasPastDays && <div className="history-month__days">{month.days.map((day) => <button className="history-row" key={day.date} onClick={() => navigate('detail', day.date)}><span><strong>{formatDate(day.date)}</strong><small>{day.spentCents ? `${money(day.spentCents)} spent` : 'No spending'}</small></span><span className="history-row__balance">{money(day.endingBalanceCents)} <span aria-hidden="true">→</span></span></button>)}</div>}</section>)}</main><dialog ref={drawerRef} className={`category-drawer${drawerClosing ? ' category-drawer--closing' : ''}`} aria-labelledby="drawer-title" aria-describedby="drawer-summary" onCancel={(event) => { event.preventDefault(); closeDrawer() }} onClose={finishClosingDrawer} onClick={(event) => { if (event.target === event.currentTarget) closeDrawer() }}>{drawer && <div className="category-drawer__panel"><header className="category-drawer__header"><div><p className="setup__eyebrow">{formatMonth(drawer.month)}</p><h2 id="drawer-title">{drawer.category}</h2><p id="drawer-summary"><strong>{money(drawerTotal)}</strong> spent in {formatMonth(drawer.month)}</p></div><button className="category-drawer__close" type="button" aria-label="Close category transactions" onClick={closeDrawer}>×</button></header><div className="category-drawer__content"><div className="transaction-list">{drawerTransactions.map((transaction) => transactionRow(transaction, true, drawer.month === monthKey))}</div></div></div>}</dialog></>
+    return <><main className="today history"><PrimaryNav view={view} navigate={navigate} />{storageErrorNotice}<header className="history__header"><p className="setup__eyebrow">Your days</p><h1>History</h1><p>Every budgeting day, newest first.</p></header>{!hasPastDays && <p className="history__empty">Your past days will appear here as you use the app.</p>}{historyMonths.map((month) => <section className="history-month" aria-labelledby={`month-${month.key}`} key={month.key}><h2 id={`month-${month.key}`}>{formatMonth(month.key)}</h2><MonthlyHistorySummary summary={month.summary} current={month.key === monthKey} onSelectCategory={(category, trigger) => openDrawer(month.key, category, trigger)} />{hasPastDays && <div className="history-month__days">{month.days.map((day) => <button className="history-row" key={day.date} onClick={() => navigate('detail', day.date)}><span><strong>{formatDate(day.date)}</strong><small>{day.spentCents ? `${money(day.spentCents)} spent` : 'No spending'}</small></span><span className="history-row__balance">{money(day.endingBalanceCents)} <span aria-hidden="true">→</span></span></button>)}</div>}</section>)}</main><dialog ref={drawerRef} className={`category-drawer${drawerClosing ? ' category-drawer--closing' : ''}`} aria-labelledby="drawer-title" aria-describedby="drawer-summary" onCancel={(event) => { event.preventDefault(); closeDrawer() }} onClose={finishClosingDrawer} onClick={(event) => { if (event.target === event.currentTarget) closeDrawer() }}>{drawer && <div className="category-drawer__panel"><header className="category-drawer__header"><div><p className="setup__eyebrow">{formatMonth(drawer.month)}</p><h2 id="drawer-title">{drawer.category}</h2><p id="drawer-summary"><strong>{money(drawerTotal)}</strong> spent in {formatMonth(drawer.month)}</p></div><button className="category-drawer__close" type="button" aria-label="Close category transactions" onClick={closeDrawer}>×</button></header><div className="category-drawer__content"><div className="transaction-list">{drawerTransactions.map((transaction) => transactionRow(transaction, true, drawer.month === monthKey))}</div></div></div>}</dialog></>
   }
 
-  return <main className="today"><PrimaryNav view={isToday ? 'today' : 'history'} navigate={navigate} />{!isToday && <button className="back-button" onClick={() => navigate('history')}>← Back to History</button>}<header className="today__header"><p className="today__date">{formatDate(activeDate)}</p><div className="balance"><h1 className="balance__amount">{money(activeBalance.endingBalanceCents)}</h1><p className="balance__label">{isToday ? 'available today' : 'ending balance'}</p><p className="balance__rollover">Includes {money(activeBalance.priorBalanceCents)} from the prior day</p></div></header>
+  return <main className="today"><PrimaryNav view={isToday ? 'today' : 'history'} navigate={navigate} />{storageErrorNotice}{!isToday && <button className="back-button" onClick={() => navigate('history')}>← Back to History</button>}<header className="today__header"><p className="today__date">{formatDate(activeDate)}</p><div className="balance"><h1 className="balance__amount">{money(activeBalance.endingBalanceCents)}</h1><p className="balance__label">{isToday ? 'available today' : 'ending balance'}</p><p className="balance__rollover">Includes {money(activeBalance.priorBalanceCents)} from the prior day</p></div></header>
   {editable ? <><div className={`categories${dayComplete ? ' categories--disabled' : ''}`} aria-label="Expense categories">{categories.map((category) => <CategoryButton key={category} label={category} selected={!dayComplete && selectedCategory === category} disabled={dayComplete} onClick={() => setSelectedCategory(category)} />)}</div>{canModifyDay && selectedCategory && <section className="expense-entry" aria-labelledby="expense-title"><h2 className="expense-entry__title" id="expense-title">{selectedCategory}</h2><form onSubmit={(event) => { event.preventDefault(); addExpense() }}><label className="expense-entry__label">Amount<span className="expense-entry__amount-wrap"><span className="amount-prefix" aria-hidden="true">$</span><input ref={inputRef} className="expense-entry__input" inputMode="decimal" placeholder="0" value={amount} onChange={(event) => setAmount(event.target.value)} /></span></label><label className="expense-entry__label expense-entry__label--note">Note<input className="expense-entry__note" type="text" value={note} onChange={(event) => setNote(event.target.value)} /></label><button className="expense-entry__button" type="submit">Add {amount ? `$${amount}` : '$0'}</button></form></section>}</> : <p className="read-only" role="note">Previous months are view only.</p>}
   {notice && <p className="recalculation-notice" role="status">{notice}</p>}
   <section className="spending" aria-labelledby="spending-title"><h2 className="spending__title" id="spending-title">{isToday ? "Today's spending" : 'Spending'}</h2>{dayTransactions.length === 0 ? <p className="spending__empty">No spending logged for this day.</p> : <div className="transaction-list">{dayTransactions.map((transaction) => transactionRow(transaction))}</div>}</section>
